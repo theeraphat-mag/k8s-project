@@ -1,0 +1,1 @@
+echo "prometheus/k8s_token" >> .gitignore
