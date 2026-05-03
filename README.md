@@ -1,4 +1,4 @@
-# 🚀 [ชื่อโปรเจค] — ENG23 3074
+# 🚀 Monkey Pop Pop — ENG23 3074
 
 > _อธิบายโปรเจคสั้น ๆ ในประโยคเดียว_  
 > **ตัวอย่าง:** ระบบ API บันทึกโน้ต สร้างด้วย Python Flask containerize ด้วย Docker และ deploy บน Kubernetes ผ่าน Jenkins pipeline แบบอัตโนมัติ
@@ -9,10 +9,10 @@
 
 | รหัสนักศึกษา | ชื่อ-นามสกุล | ความรับผิดชอบ |
 |-------------|-------------|---------------|
-| B66515574 | ธีระพัฒน์ แสวงดี | Git, App Development |
-| 6XXXXXXX | ชื่อ นามสกุล | Jenkins, Docker |
-| 6XXXXXXX | ชื่อ นามสกุล | Terraform, Ansible |
-| B6615406 | ธมนวรรณ เกริ่นกระโทก | Kubernetes, Monitoring |
+| B66515574 | นายธีระพัฒน์ แสวงดี | Git, App Development |
+| B6619404 | นายธีรภัทร จันทสุรีย์ | Jenkins, Docker |
+| B6644468 | นางสาวอัฐภิญญา จันทร์หนองหว้า | Terraform, Ansible |
+| B6615406 | นางสาวธมนวรรณ เกริ่นกระโทก | Kubernetes, Monitoring |
 
 ---
 
