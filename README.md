@@ -9,10 +9,10 @@
 
 | รหัสนักศึกษา | ชื่อ-นามสกุล | ความรับผิดชอบ |
 |-------------|-------------|---------------|
-| 6XXXXXXX | ชื่อ นามสกุล | Git, App Development |
+| B66515574 | ธีระพัฒน์ แสวงดี | Git, App Development |
 | 6XXXXXXX | ชื่อ นามสกุล | Jenkins, Docker |
 | 6XXXXXXX | ชื่อ นามสกุล | Terraform, Ansible |
-| 6XXXXXXX | ชื่อ นามสกุล | Kubernetes, Monitoring |
+| B6615406 | ธมนวรรณ เกริ่นกระโทก | Kubernetes, Monitoring |
 
 ---
 
