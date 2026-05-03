@@ -1,0 +1,29 @@
+groups:
+- name: monkeypop_alerts
+  rules:
+  - alert: BackendDown
+    expr: up{job="monkeypop-backend"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Backend pod is down"
+      description: "The backend pod in monkeypop namespace has been down for more than 1 minute."
+
+  - alert: HighClickRate
+    expr: sum(rate(monkey_pops_total[1m])) > 100
+    for: 30s
+    labels:
+      severity: warning
+    annotations:
+      summary: "High clicking activity detected"
+      description: "Click rate is over 100 pops per second, check if it is a bot."
+
+  - alert: RedisDown
+    expr: up{job="redis"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Redis is unreachable"
+      description: "The redis deployment is down, leaderboard will not work."
