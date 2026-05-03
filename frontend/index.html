@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MonkeyPop - Live Ranking</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background-image: url('background.png');
+            background-size: cover; background-position: center;
+            font-family: 'Arial Black', sans-serif;
+        }
+
+        /* หัวข้อชื่อเกม */
+        .title {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            font-size: 50px;
+            color: white;
+            -webkit-text-stroke: 2px black;
+            margin: 0;
+            z-index: 60; /* ให้อยู่สูงกว่าเลเยอร์อื่น */
+            pointer-events: none;
+        }
+
+        .timer-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 70;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .timer-svg {
+            width: 100px;
+            height: 100px;
+            transform: rotate(-90deg);
+        }
+
+        .timer-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.3);
+            stroke-width: 8;
+        }
+
+        .timer-progress {
+            fill: none;
+            stroke: #ff4444;
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 251.2; 
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 1s linear, stroke 0.3s;
+        }
+
+        #timer-box {
+            position: absolute;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            -webkit-text-stroke: 1px black;
+        }
+
+        .live-ranking {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            font-family: sans-serif;
+            font-size: 16px;
+            z-index: 70;
+            min-width: 160px;
+            border: 2px solid #ffd700;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .rank-header {
+            color: #ffd700;
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 1px solid #555;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+        }
+
+        .rank-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .rank-item.me {
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .score-container {
+            position: absolute;
+            top: 80px; /* ขยับลงมาจากชื่อเกม */
+            width: 100%;
+            text-align: center;
+            font-size: clamp(60px, 15vw, 100px);
+            color: white;
+            -webkit-text-stroke: 2px black;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        .monkey-container {
+            position: absolute;
+            bottom: 0; width: 100%; height: 85%;
+            display: flex; justify-content: center; align-items: flex-end;
+            z-index: 10;
+        }
+
+        .monkey-img {
+            height: 75vh; width: auto; cursor: pointer;
+            user-select: none; -webkit-user-drag: none;
+            transition: transform 0.05s;
+        }
+
+        .monkey-img:active { transform: scale(0.95); }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100; color: white;
+        }
+
+        .hidden { display: none !important; }
+        
+        input { padding: 15px; font-size: 20px; border-radius: 10px; border: none; text-align: center; }
+        button { margin-top: 20px; padding: 15px 40px; font-size: 20px; cursor: pointer; border-radius: 10px; border: none; font-weight: bold; background: white; }
+    </style>
+</head>
+<body>
+
+    <!-- ชื่อเกม -->
+    <h1 class="title">MONKEY POP</h1>
+
+    <!-- จับเวลา -->
+    <div id="timer-ui" class="timer-container hidden">
+        <svg class="timer-svg">
+            <circle class="timer-bg" cx="50" cy="50" r="40"></circle>
+            <circle id="progress-bar" class="timer-progress" cx="50" cy="50" r="40"></circle>
+        </svg>
+        <div id="timer-box">60</div>
+    </div>
+
+    <!-- แรงค์กิ้ง -->
+    <div id="live-rank-box" class="live-ranking hidden">
+        <div class="rank-header">TOP 5 RANKING</div>
+        <div id="live-rank-list">ดึงข้อมูล...</div>
+    </div>
+
+    <!-- คะแนน -->
+    <div class="score-container" id="score-display">0</div>
+
+    <!-- น้องลิง -->
+    <div id="game-section" class="monkey-container">
+        <img id="monkey-btn" src="monkey1.png" class="monkey-img" draggable="false">
+    </div>
+
+    <!-- หน้า Login -->
+    <div id="login-section" class="overlay">
+        <h1 style="-webkit-text-stroke: 1px gold; font-size: 60px; margin-bottom: 20px;">MONKEY POP</h1>
+        <input type="text" id="username" placeholder="ใส่ชื่อของคุณ">
+        <button onclick="startGame()">START</button>
+    </div>
+
+    <!-- หน้าสรุปผล -->
+    <div id="result-section" class="overlay hidden">
+        <h2 style="font-size: 40px; color: #ffd700;">TIME UP!</h2>
+        <div id="final-score" style="font-size: 80px;"></div>
+        <button onclick="location.reload()">PLAY AGAIN</button>
+    </div>
+
+    <script>
+        let score = 0;
+        let timeLeft = 60;
+        let timerId;
+        let topPlayers = [];
+        const monkeyBtn = document.getElementById('monkey-btn');
+        const scoreDisplay = document.getElementById('score-display');
+
+        async function loadLeaderboard() {
+            try {
+                const res = await fetch('http://localhost:3001/api/leaderboard');
+                topPlayers = await res.json();
+                renderRankings();
+            } catch (err) { 
+                console.error("Error connecting to server");
+                document.getElementById('live-rank-list').innerHTML = "Server Offline";
+            }
+        }
+
+        function renderRankings() {
+            const myName = document.getElementById('username').value;
+            const listHtml = topPlayers.slice(0, 5).map((p, i) => `
+                <div class="rank-item ${p.username === myName ? 'me' : ''}">
+                    <span>#${i+1} ${p.username}</span>
+                    <span>${p.score}</span>
+                </div>
+            `).join('');
+            document.getElementById('live-rank-list').innerHTML = listHtml;
+        }
+
+        function startGame() {
+            const user = document.getElementById('username').value;
+            if(!user) return alert("กรุณาใส่ชื่อ");
+            
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('timer-ui').classList.remove('hidden');
+            document.getElementById('live-rank-box').classList.remove('hidden');
+            
+            // โหลดแรงค์กิ้งทันทีที่เริ่ม
+            loadLeaderboard();
+            
+            const progressBar = document.getElementById('progress-bar');
+            const totalDash = 251.2; 
+            
+            timerId = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer-box').innerText = timeLeft;
+                
+                const offset = totalDash - (timeLeft / 60) * totalDash;
+                progressBar.style.strokeDashoffset = offset;
+
+                if (timeLeft <= 10) progressBar.style.stroke = "#ffcc00";
+                if(timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        function pop() {
+            if(timeLeft > 0) {
+                score++;
+                scoreDisplay.innerText = score;
+                monkeyBtn.src = "monkey2.png"; 
+            }
+        }
+
+        function unpop() {
+            monkeyBtn.src = "monkey1.png"; 
+        }
+
+        monkeyBtn.addEventListener('mousedown', pop);
+        monkeyBtn.addEventListener('mouseup', unpop);
+        monkeyBtn.addEventListener('touchstart', (e) => { e.preventDefault(); pop(); });
+        monkeyBtn.addEventListener('touchend', unpop);
+
+        async function endGame() {
+            clearInterval(timerId);
+            document.getElementById('timer-ui').classList.add('hidden');
+            const user = document.getElementById('username').value;
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('result-section').classList.remove('hidden');
+
+            try {
+                await fetch('http://localhost:3001/api/score', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username: user, score: score })
+                });
+                await loadLeaderboard(); 
+            } catch (err) { console.error("Save failed"); }
+        }
+    </script>
+</body>
+</html>
