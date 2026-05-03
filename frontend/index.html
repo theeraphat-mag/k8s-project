@@ -139,12 +139,38 @@
         
         input { padding: 15px; font-size: 20px; border-radius: 10px; border: none; text-align: center; }
         button { margin-top: 20px; padding: 15px 40px; font-size: 20px; cursor: pointer; border-radius: 10px; border: none; font-weight: bold; background: white; }
+
+        /* ปุ่มปิด/เปิดเสียง */
+        .sound-toggle {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 70;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: 1px solid white;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
     </style>
 </head>
 <body>
 
+    <!-- เสียงคิด -->
+    <audio id="pop-sound" src="chieuk-thinking-289286.mp3" preload="auto"></audio>
+
     <!-- ชื่อเกม -->
     <h1 class="title">MONKEY POP</h1>
+
+    <!-- ปุ่มเสียง -->
+    <button class="sound-toggle" onclick="toggleSound()" id="sound-btn">🔊</button>
 
     <!-- จับเวลา -->
     <div id="timer-ui" class="timer-container hidden">
@@ -187,23 +213,43 @@
         let score = 0;
         let timeLeft = 60;
         let timerId;
+        let boardIntervalId;
+        let isMuted = false;
         let topPlayers = [];
         const monkeyBtn = document.getElementById('monkey-btn');
         const scoreDisplay = document.getElementById('score-display');
+        const popSound = document.getElementById('pop-sound');
+
+        function toggleSound() {
+            isMuted = !isMuted;
+            document.getElementById('sound-btn').innerText = isMuted ? '🔇' : '🔊';
+        }
+
+        function playPopSound() {
+            if (isMuted) return;
+            popSound.currentTime = 0; 
+            popSound.play().catch(e => console.error("Sound play failed:", e));
+        }
+
+        // ตรวจสอบว่ารันบน K8s หรือ Local
+        const API_URL = window.location.port === '30001' 
+            ? `${window.location.protocol}//${window.location.hostname}:30002` 
+            : 'http://localhost:3001';
 
         async function loadLeaderboard() {
             try {
-                const res = await fetch('http://localhost:3001/api/leaderboard');
+                const res = await fetch(`${API_URL}/api/leaderboard`);
                 topPlayers = await res.json();
                 renderRankings();
             } catch (err) { 
-                console.error("Error connecting to server");
-                document.getElementById('live-rank-list').innerHTML = "Server Offline";
+                console.error("Error loading leaderboard:", err);
             }
         }
 
         function renderRankings() {
             const myName = document.getElementById('username').value;
+            
+            // แสดง Top 5
             const listHtml = topPlayers.slice(0, 5).map((p, i) => `
                 <div class="rank-item ${p.username === myName ? 'me' : ''}">
                     <span>#${i+1} ${p.username}</span>
@@ -212,17 +258,29 @@
             `).join('');
             document.getElementById('live-rank-list').innerHTML = listHtml;
         }
+function startGame() {
+    const user = document.getElementById('username').value.trim();
+    if(!user) return alert("กรุณาใส่ชื่อ");
+    document.getElementById('username').value = user; // ใส่ชื่อที่ trim แล้วกลับลงไป
 
-        function startGame() {
-            const user = document.getElementById('username').value;
-            if(!user) return alert("กรุณาใส่ชื่อ");
+    score = 0;
+            // ปลดล็อคเสียง
+            popSound.play().then(() => {
+                popSound.pause();
+                popSound.currentTime = 0;
+            }).catch(e => console.log("Audio unlock interaction needed"));
+            
+            score = 0;
+            timeLeft = 60;
+            scoreDisplay.innerText = "0";
             
             document.getElementById('login-section').classList.add('hidden');
             document.getElementById('timer-ui').classList.remove('hidden');
             document.getElementById('live-rank-box').classList.remove('hidden');
             
-            // โหลดแรงค์กิ้งทันทีที่เริ่ม
+            // ดึงบอร์ดมาโชว์ (แค่ดูคนอื่น ไม่ส่งคะแนนเรา) ทุก 3 วินาที
             loadLeaderboard();
+            boardIntervalId = setInterval(loadLeaderboard, 3000);
             
             const progressBar = document.getElementById('progress-bar');
             const totalDash = 251.2; 
@@ -244,6 +302,7 @@
                 score++;
                 scoreDisplay.innerText = score;
                 monkeyBtn.src = "monkey2.png"; 
+                playPopSound();
             }
         }
 
@@ -258,18 +317,20 @@
 
         async function endGame() {
             clearInterval(timerId);
+            clearInterval(boardIntervalId); // หยุดการดึงบอร์ดชั่วคราว
             document.getElementById('timer-ui').classList.add('hidden');
             const user = document.getElementById('username').value;
             document.getElementById('final-score').innerText = score;
             document.getElementById('result-section').classList.remove('hidden');
 
             try {
-                await fetch('http://localhost:3001/api/score', {
+                // ส่งคะแนนทีเดียวตอนจบเกม
+                await fetch(`${API_URL}/api/score`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ username: user, score: score })
                 });
-                await loadLeaderboard(); 
+                await loadLeaderboard(); // อัปเดตบอร์ดให้เห็นคะแนนเราที่เพิ่งส่งไป
             } catch (err) { console.error("Save failed"); }
         }
     </script>

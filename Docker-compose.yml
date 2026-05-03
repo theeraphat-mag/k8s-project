@@ -1,6 +1,6 @@
 version: '3.8'
 
-servies:
+services:
   prometheus:
     image: prom/prometheus
     container_name: prometheus
@@ -23,7 +23,46 @@ servies:
     depends_on:
       - prometheus
     volumes:
-      - grafana-data:/var/lib/grafana
+      - grafana-storage:/var/lib/grafana
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    container_name: monkeypop-backend
+    ports:
+      - "3001:3001"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+
+  frontend:
+    build: ./frontend
+    container_name: monkeypop-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    privileged: true
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
 
 volumes:
   grafana-storage:
+  jenkins-data:
