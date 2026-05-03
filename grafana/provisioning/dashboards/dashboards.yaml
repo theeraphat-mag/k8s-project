@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: 'MonkeyPop Dashboards'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      # ต้องชี้ไปที่โฟลเดอร์ที่ Grafana เก็บ Dashboard จริงๆ ใน Container
+      path: /var/lib/grafana/dashboards
