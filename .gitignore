@@ -1,1 +1,7 @@
-echo "prometheus/k8s_token" >> .gitignore
+prometheus/k8s_token
+node_modules/
+dist/
+*.log
+.env
+grafana-storage/
+jenkins-data/
