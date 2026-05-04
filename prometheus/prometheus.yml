@@ -12,8 +12,7 @@ scrape_configs:
 
   - job_name: 'monkeypop-backend'
     static_configs:
-      # ใช้ IP นี้เพื่อบังคับให้วิ่งออกไปหาเครื่อง Host ที่เราเปิด Port-forward ไว้
-      - targets: ['host.docker.internal:30002']
+      - targets: ['monkeypop-backend:3001']
 
   - job_name: 'node-exporter'
     static_configs:
