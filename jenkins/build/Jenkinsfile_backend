@@ -24,9 +24,7 @@ pipeline {
         stage('Test Docker Image') {
             steps {
                 echo 'Testing backend image...'
-                withEnv(["IMAGE=${env.IMAGE_NAME}:${env.IMAGE_TAG}"]) {
-                    sh 'docker run --rm $IMAGE node --version'
-                }
+                sh 'docker run --rm thamonwanfirst/monkeypop-backend:latest node --version'
             }
         }
 
