@@ -2,7 +2,7 @@ pipeline {
     agent { label 'server' }
 
     environment {
-        IMAGE_NAME = 'thamonwanfirst/monkeypop-backend'
+        IMAGE_NAME = 'theeraphat7/monkeypop-backend'
         IMAGE_TAG = 'latest'
     }
 
@@ -24,7 +24,7 @@ pipeline {
         stage('Test Docker Image') {
             steps {
                 echo 'Testing backend image...'
-                sh 'docker run --rm thamonwanfirst/monkeypop-backend:latest node --version'
+                sh 'docker run --rm theeraphat7/monkeypop-backend:latest node --version'
             }
         }
 
