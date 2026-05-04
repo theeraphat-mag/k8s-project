@@ -1,20 +1,27 @@
 ---
 - name: Deploy Backend on Kubernetes
-  hosts: server
+  hosts: localhost
+  connection: local
+  gather_facts: false
   vars:
     namespace: monkeypop
-    image_name: thamonwanfirst/monkeypop-backend
+    image_name: theerapaht7/monkeypop-backend
     image_tag: latest
+    kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
   tasks:
     - name: Create monkeypop namespace
       kubernetes.core.k8s:
-        name: "{{ namespace }}"
-        api_version: v1
-        kind: Namespace
+        kubeconfig: "{{ kubeconfig_path }}"
         state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ namespace }}"
 
     - name: Create backend config map
       kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
         state: present
         definition:
           apiVersion: v1
@@ -27,6 +34,7 @@
 
     - name: Create backend secret
       kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
         state: present
         definition:
           apiVersion: v1
@@ -40,6 +48,7 @@
 
     - name: Deploy Backend Deployment
       kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
         state: present
         definition:
           apiVersion: apps/v1
@@ -76,6 +85,7 @@
 
     - name: Create Backend Service
       kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
         state: present
         definition:
           apiVersion: v1
