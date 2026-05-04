@@ -5,7 +5,7 @@
   gather_facts: false
   vars:
     k8s_namespace: monkeypop
-    image_name: theerapaht7/monkeypop-backend
+    image_name: theeraphat7/monkeypop-backend
     image_tag: latest
     kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default(lookup('env', 'HOME') + '/.kube/config', true) }}"
   environment:
