@@ -1,0 +1,25 @@
+pipeline {
+    agent { label 'server' }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                cleanWs()
+                git credentialsId: 'github', url: 'https://github.com/tapootum/project-03-2026.git', branch: 'main'
+            }
+        }
+
+        stage('Deploy to Kubernetes Cluster') {
+            steps {
+                echo 'Deploy backend to Kubernetes cluster...'
+                sh 'cd ansible/backend && ansible-playbook -i hosts.ini deploy_backend.yml'
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}

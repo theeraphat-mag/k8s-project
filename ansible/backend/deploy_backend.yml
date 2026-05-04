@@ -1,0 +1,93 @@
+---
+- name: Deploy Backend on Kubernetes
+  hosts: server
+  vars:
+    namespace: monkeypop
+    image_name: thamonwanfirst/monkeypop-backend
+    image_tag: latest
+  tasks:
+    - name: Create monkeypop namespace
+      kubernetes.core.k8s:
+        name: "{{ namespace }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Create backend config map
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: backend-config
+            namespace: "{{ namespace }}"
+          data:
+            REDIS_URL: redis://redis:6379
+
+    - name: Create backend secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: backend-secret
+            namespace: "{{ namespace }}"
+          type: Opaque
+          data:
+            API_KEY: bW9ua2V5LXNlY3JldC1rZXk=
+
+    - name: Deploy Backend Deployment
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: backend
+            namespace: "{{ namespace }}"
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: backend
+            template:
+              metadata:
+                labels:
+                  app: backend
+              spec:
+                containers:
+                - name: backend
+                  image: "{{ image_name }}:{{ image_tag }}"
+                  ports:
+                  - containerPort: 3001
+                  env:
+                  - name: REDIS_URL
+                    valueFrom:
+                      configMapKeyRef:
+                        name: backend-config
+                        key: REDIS_URL
+                  - name: API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: backend-secret
+                        key: API_KEY
+
+    - name: Create Backend Service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: backend
+            namespace: "{{ namespace }}"
+          spec:
+            type: NodePort
+            selector:
+              app: backend
+            ports:
+            - port: 3001
+              targetPort: 3001
+              nodePort: 30002
