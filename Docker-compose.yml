@@ -7,6 +7,7 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus-data:/prometheus
     ports:
       - "9090:9090"
 
@@ -32,8 +33,11 @@ services:
   redis:
     image: redis:alpine
     container_name: redis
+    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
 
   backend:
     build: ./backend
@@ -70,3 +74,5 @@ services:
 volumes:
   grafana-storage:
   jenkins-data:
+  prometheus-data:
+  redis-data:
