@@ -81,7 +81,7 @@
             spec:
               containers:
               - name: backend
-                image: tapootum/test-backend:{{ version }}
+                image: theeraphat7/monkeypop-backend:{{ version }}
                 ports:
                 - containerPort: 3001
         EOF
