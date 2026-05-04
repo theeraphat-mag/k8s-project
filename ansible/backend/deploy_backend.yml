@@ -55,6 +55,8 @@
 
 - name: Deploy Backend on Kubernetes
   hosts: server
+  vars:
+    version: "latest"   
   tasks:
     - name: Create web-app namespace
       shell: kubectl create namespace web-app --dry-run=client -o yaml | kubectl apply -f -
