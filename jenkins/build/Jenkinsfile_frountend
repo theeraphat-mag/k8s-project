@@ -26,7 +26,7 @@ pipeline {
 
         stage('Test Docker Image') {
             steps {
-                sh "docker run --rm ${env.IMAGE_NAME}:${env.IMAGE_TAG} node --version"
+                sh "docker run --rm ${env.IMAGE_NAME}:${env.IMAGE_TAG} nginx -v"
             }
         }
 
