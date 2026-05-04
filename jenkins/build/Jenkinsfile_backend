@@ -10,7 +10,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 cleanWs()
-                git credentialsId: 'github', url: 'https://github.com/tapootum/project-03-2026.git', branch: 'main'
+                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'mag'
             }
         }
 
