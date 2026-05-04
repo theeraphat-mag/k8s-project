@@ -1,0 +1,29 @@
+pipeline {
+    agent { label 'server' }
+    
+    parameters {
+        string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to deploy')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                cleanWs()
+                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'mag'
+            }
+        }
+
+        stage('Deploy to Kubernetes Cluster') {
+            steps {
+                echo 'Deploy frontend to Kubernetes cluster...'
+                sh "cd ansible/frontend && ansible-playbook -i hosts.ini deploy_frontend.yml -e version=${params.VERSION}"
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
