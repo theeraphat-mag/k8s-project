@@ -112,7 +112,7 @@
 
 ---
 - name: Deploy Backend on Kubernetes
-  hosts: wsl
+  hosts: server
   tasks:
     - name: Create a web-app namespace
       kubernetes.core.k8s:
