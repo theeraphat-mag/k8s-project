@@ -1,5 +1,9 @@
 pipeline {
     agent { label 'server' }
+    
+    parameters {
+        string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to deploy')
+    }
 
     stages {
         stage('Checkout') {
@@ -12,7 +16,7 @@ pipeline {
         stage('Deploy to Kubernetes Cluster') {
             steps {
                 echo 'Deploy backend to Kubernetes cluster...'
-                sh 'cd ansible/backend && ansible-playbook -i hosts.ini deploy_backend.yml'
+                sh "cd ansible/backend && ansible-playbook -i hosts.ini deploy_backend.yml -e version=${params.VERSION}"
             }
         }
     }
