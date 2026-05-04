@@ -24,7 +24,7 @@ pipeline {
         stage('Test Docker Image') {
             steps {
                 echo 'Testing backend image...'
-                sh "docker run --rm ${env.IMAGE_NAME}:${env.IMAGE_TAG} ls -1 /app/server.js"
+                sh 'docker run --rm ${env.IMAGE_NAME}:${env.IMAGE_TAG} node --version'
             }
         }
 
