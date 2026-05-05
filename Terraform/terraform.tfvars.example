@@ -1,0 +1,23 @@
+# Copy this file to terraform.tfvars and customize values
+# cp terraform.tfvars.example terraform.tfvars
+
+# Docker configuration
+docker_host = "unix:///var/run/docker.sock"
+# For Windows: "npipe:////./pipe/docker_engine"
+# For remote Docker: "tcp://hostname:2375"
+
+# Nginx container (example)
+image_name           = "nginx:latest"
+container_name       = "tutorial-container"
+internal_port        = 80
+external_port        = 8000
+
+# Backend container
+backend_image            = "monkeypop-backend:local"
+backend_container_name   = "backend-container"
+backend_external_port    = 3001
+
+# Frontend container
+frontend_image           = "monkeypop-frontend:local"
+frontend_container_name  = "frontend-container"
+frontend_external_port   = 3000
