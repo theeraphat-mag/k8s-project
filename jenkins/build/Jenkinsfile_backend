@@ -1,0 +1,50 @@
+pipeline {
+    agent { label 'server' }
+
+    parameters {
+        string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to build')
+    }
+
+    environment {
+        IMAGE_NAME = 'theeraphat7/monkeypop-backend'
+        IMAGE_TAG = "${params.VERSION}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                cleanWs()
+                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'mag'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ./backend"
+            }
+        }
+
+        stage('Test Docker Image') {
+            steps {
+                sh "docker run --rm ${env.IMAGE_NAME}:${env.IMAGE_TAG} node --version"
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
+                    sh 'echo $DPASS | docker login -u $DUSER --password-stdin'
+                    sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
+            sh 'docker logout || true'
+            cleanWs()
+        }
+    }
+}
