@@ -16,7 +16,9 @@ pipeline {
         stage('Deploy to Kubernetes Cluster') {
             steps {
                 echo 'Deploy backend to Kubernetes cluster...'
-                sh "cd ansible/backend && ansible-playbook -i hosts.ini deploy_backend.yml -e version=${params.VERSION}"
+                sshagent(credentials: ['ansible-ssh-key']) {
+                    sh "cd ansible/backend && ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i hosts.ini deploy_backend.yml -e version=${params.VERSION}"
+                }
             }
         }
     }

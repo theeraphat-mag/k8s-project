@@ -16,7 +16,9 @@ pipeline {
         stage('Deploy to Kubernetes Cluster') {
             steps {
                 echo 'Deploy frontend to Kubernetes cluster...'
-                sh "cd ansible/frontend && ansible-playbook -i hosts.ini deploy_frontend.yml -e version=${params.VERSION}"
+                sshagent(credentials: ['ansible-ssh-key']) {
+                    sh "cd ansible/frontend && ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i hosts.ini deploy_frontend.yml -e version=${params.VERSION}"
+                }
             }
         }
     }

@@ -150,8 +150,9 @@ Checkout ──▶ Build ──▶ Test ──▶ Docker Build ──▶ Push to
 1. ติดตั้ง Jenkins และเปิดที่ `http://localhost:8080`
 2. ติดตั้ง plugin: **Git**, **Pipeline**, **Docker Pipeline**
 3. เพิ่ม credentials สำหรับ Docker Hub (ชื่อ `dockerhub-credentials`)
-4. สร้าง Pipeline job ใหม่ และชี้ไปที่ repository นี้
-5. ตั้งค่า Webhook ใน GitHub:
+4. เพิ่ม SSH credential แบบ private key สำหรับ Ansible deploy ใน Jenkins โดยใช้ id `ansible-ssh-key`
+5. สร้าง Pipeline job ใหม่ และชี้ไปที่ repository นี้
+6. ตั้งค่า Webhook ใน GitHub:
    - ไปที่ **Settings → Webhooks → Add webhook**
    - Payload URL: `http://[jenkins-host]:8080/github-webhook/`
    - Content type: `application/json`
