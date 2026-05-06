@@ -44,7 +44,7 @@ pipeline {
         always {
             sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
             sh 'docker logout || true'
-            cleanWs()
+            deleteDir()
         }
     }
 }
