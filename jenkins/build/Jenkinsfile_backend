@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'server' }
+    agent { label 'built-in' }
 
     parameters {
         string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to build')
@@ -18,23 +18,34 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ./backend"
-            }
-        }
-
-        stage('Test Docker Image') {
-            steps {
-                sh "docker run --rm ${env.IMAGE_NAME}:${env.IMAGE_TAG} node --version"
-            }
-        }
-
-        stage('Push to Docker Hub') {
+        stage('Build and Push with Kaniko') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
-                    sh 'echo $DPASS | docker login -u $DUSER --password-stdin'
-                    sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                    sh '''
+                        set -eu
+
+                        mkdir -p "$WORKSPACE/.kaniko"
+                        AUTH="$(printf '%s:%s' "$DUSER" "$DPASS" | base64 | tr -d '\n')"
+
+                        cat > "$WORKSPACE/.kaniko/config.json" <<EOF
+                        {
+                          "auths": {
+                            "https://index.docker.io/v1/": {
+                              "auth": "$AUTH"
+                            }
+                          }
+                        }
+EOF
+
+                        docker run --rm \
+                          -v "$WORKSPACE":/workspace \
+                          -v "$WORKSPACE/.kaniko":/kaniko/.docker \
+                          gcr.io/kaniko-project/executor:v1.24.0 \
+                          --dockerfile=/workspace/backend/Dockerfile \
+                          --context=dir:///workspace/backend \
+                          --destination=${IMAGE_NAME}:${IMAGE_TAG} \
+                          --cache=true
+                    '''
                 }
             }
         }
@@ -42,9 +53,8 @@ pipeline {
 
     post {
         always {
-            sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
-            sh 'docker logout || true'
             cleanWs()
         }
     }
 }
+

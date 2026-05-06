@@ -54,7 +54,10 @@ services:
       - backend
 
   jenkins:
-    image: jenkins/jenkins:lts
+    build:
+      context: ./jenkins
+      dockerfile: Dockerfile
+    image: theeraphat7/jenkins-kaniko:lts
     container_name: jenkins
     privileged: true
     user: root
