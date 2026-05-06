@@ -28,6 +28,7 @@
               containers:
               - name: frontend
                 image: thamonwanfirst/monkeypop-frontend:{{ version }}
+                imagePullPolicy: Always
                 ports:
                 - containerPort: 80
         EOF
@@ -50,3 +51,6 @@
             targetPort: 80
             nodePort: 30001
         EOF
+
+    - name: Force Rollout Restart
+      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl rollout restart deployment/frontend -n monkeypop
