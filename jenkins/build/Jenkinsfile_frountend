@@ -14,7 +14,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'mag'
+                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'ReadMe_noey'
             }
         }
 
