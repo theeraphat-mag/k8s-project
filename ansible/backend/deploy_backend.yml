@@ -5,11 +5,12 @@
     version: "latest"   
   tasks:
     - name: Create monkeypop namespace
-      shell: kubectl create namespace monkeypop --dry-run=client -o yaml | kubectl apply -f -
+      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl create namespace monkeypop --dry-run=client -o yaml | kubectl apply -f - --validate=false
 
     - name: Deploy Backend
       shell: |
-        kubectl apply -f - <<EOF
+        export KUBECONFIG=/var/jenkins_home/.kube/config
+        kubectl apply -f - --validate=false <<EOF
         apiVersion: apps/v1
         kind: Deployment
         metadata:
@@ -34,7 +35,8 @@
 
     - name: Create Backend Service
       shell: |
-        kubectl apply -f - <<EOF
+        export KUBECONFIG=/var/jenkins_home/.kube/config
+        kubectl apply -f - --validate=false <<EOF
         apiVersion: v1
         kind: Service
         metadata:
