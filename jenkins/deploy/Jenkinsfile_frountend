@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'server' }
+    agent any
     
     parameters {
         string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to deploy')

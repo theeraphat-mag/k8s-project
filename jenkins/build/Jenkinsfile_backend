@@ -1,12 +1,12 @@
 pipeline {
-    agent { label 'server' }
+    agent any
 
     parameters {
         string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to build')
     }
 
     environment {
-        IMAGE_NAME = 'theeraphat7/monkeypop-backend'
+        IMAGE_NAME = 'thamonwanfirst/monkeypop-backend'
         IMAGE_TAG = "${params.VERSION}"
     }
 
@@ -14,7 +14,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 cleanWs()
-                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'mag'
+                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'ReadMe_noey'
             }
         }
 

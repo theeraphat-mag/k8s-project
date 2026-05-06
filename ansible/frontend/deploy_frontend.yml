@@ -3,8 +3,8 @@
   vars:
     version: "latest"
   tasks:
-    - name: Create web-app namespace
-      shell: kubectl create namespace web-app --dry-run=client -o yaml | kubectl apply -f -
+    - name: Create monkeypop namespace
+      shell: kubectl create namespace monkeypop --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Deploy Frontend
       shell: |
@@ -13,7 +13,7 @@
         kind: Deployment
         metadata:
           name: frontend
-          namespace: web-app
+          namespace: monkeypop
         spec:
           replicas: 2
           selector:
@@ -26,7 +26,7 @@
             spec:
               containers:
               - name: frontend
-                image: theeraphat7/monkeypop-frontend:{{ version }}
+                image: thamonwanfirst/monkeypop-frontend:{{ version }}
                 ports:
                 - containerPort: 80
         EOF
@@ -37,8 +37,8 @@
         apiVersion: v1
         kind: Service
         metadata:
-          name: frontend-service
-          namespace: web-app
+          name: frontend
+          namespace: monkeypop
         spec:
           type: NodePort
           selector:
@@ -46,5 +46,5 @@
           ports:
           - port: 80
             targetPort: 80
-            nodePort: 30004
+            nodePort: 30001
         EOF

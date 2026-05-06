@@ -1,65 +1,11 @@
-# ---
-# - name: Deploy Backend on Kubernetes
-#   hosts: server
-#   tasks:
-#     - name: Create a web-app namespace
-#       kubernetes.core.k8s:
-#         name: web-app
-#         api_version: v1
-#         kind: Namespace
-#         state: present
-
-#     - name: Deploy Backend Deployment
-#       kubernetes.core.k8s:
-#         state: present
-#         definition:
-#           apiVersion: apps/v1
-#           kind: Deployment
-#           metadata:
-#             name: backend
-#             namespace: web-app
-#           spec:
-#             replicas: 2
-#             selector:
-#               matchLabels:
-#                 app: backend
-#             template:
-#               metadata:
-#                 labels:
-#                   app: backend
-#               spec:
-#                 containers:
-#                 - name: backend
-#                   image: tapootum/test-backend:{{ version }}
-#                   ports:
-#                   - containerPort: 3001
-
-#     - name: Create Backend Service
-#       kubernetes.core.k8s:
-#         state: present
-#         definition:
-#           apiVersion: v1
-#           kind: Service
-#           metadata:
-#             name: backend-service
-#             namespace: web-app
-#           spec:
-#             type: NodePort
-#             selector:
-#               app: backend
-#             ports:
-#             - port: 3001
-#               targetPort: 3001
-#               nodePort: 30002
-
 
 - name: Deploy Backend on Kubernetes
   hosts: server
   vars:
     version: "latest"   
   tasks:
-    - name: Create web-app namespace
-      shell: kubectl create namespace web-app --dry-run=client -o yaml | kubectl apply -f -
+    - name: Create monkeypop namespace
+      shell: kubectl create namespace monkeypop --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Deploy Backend
       shell: |
@@ -68,7 +14,7 @@
         kind: Deployment
         metadata:
           name: backend
-          namespace: web-app
+          namespace: monkeypop
         spec:
           replicas: 2
           selector:
@@ -81,7 +27,7 @@
             spec:
               containers:
               - name: backend
-                image: theeraphat7/monkeypop-backend:{{ version }}
+                image: thamonwanfirst/monkeypop-backend:{{ version }}
                 ports:
                 - containerPort: 3001
         EOF
@@ -92,8 +38,8 @@
         apiVersion: v1
         kind: Service
         metadata:
-          name: backend-service
-          namespace: web-app
+          name: backend
+          namespace: monkeypop
         spec:
           type: NodePort
           selector:
@@ -101,5 +47,5 @@
           ports:
           - port: 3001
             targetPort: 3001
-            nodePort: 30003
+            nodePort: 30002
         EOF

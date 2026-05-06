@@ -35,6 +35,14 @@ client.connect();
 // Save or Update Score
 app.post('/api/score', async (req, res) => {
     let { username, score } = req.body;
+    
+    // API Key Verification
+    const clientApiKey = req.headers['x-api-key'];
+    if (process.env.API_KEY && clientApiKey !== process.env.API_KEY) {
+        console.log(`Unauthorized access attempt for ${username}`);
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     if (!username || score === undefined) return res.status(400).json({ error: 'Invalid data' });
 
     username = username.trim().toLowerCase();

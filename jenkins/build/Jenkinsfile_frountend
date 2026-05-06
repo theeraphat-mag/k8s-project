@@ -1,12 +1,12 @@
 pipeline {
-    agent { label 'server' }
+    agent any
 
     parameters {
         string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to build')
     }
 
     environment {
-        IMAGE_NAME = 'theeraphat7/monkeypop-frontend'
+        IMAGE_NAME = 'thamonwanfirst/monkeypop-frontend'
         IMAGE_TAG = "${params.VERSION}"
     }
 
