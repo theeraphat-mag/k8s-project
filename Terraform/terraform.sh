@@ -3,16 +3,16 @@
 
 if [ -z "$1" ]; then
     cat <<EOF
-Terraform Launcher
-==================
+Terraform Launcher for Kubernetes
+================================
 Usage: ./terraform.sh [command] [args]
 
 Commands:
-  init      - Initialize Terraform
+  init      - Initialize Terraform (Kubernetes Provider)
   validate  - Validate Terraform files
   plan      - Create and show plan
-  apply     - Apply Terraform changes
-  destroy   - Destroy infrastructure
+  apply     - Apply Infrastructure to K8s
+  destroy   - Remove Infrastructure from K8s
   clean     - Remove state files
   show      - Show current state
   help      - Show this help message
