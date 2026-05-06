@@ -1,7 +1,7 @@
-# 🚀 Monkey Pop Pop — ENG23 3074
+# 🚀 Monkey Pop Pop — Serverless & Cloud Architecture (ENG23 3074)
 
-> **เกมกดลิงยอดฮิตที่มีระบบ Live Ranking แบบ Real-time**  
-> พัฒนาด้วย Node.js และ Redis, ทำ Containerization ด้วย Docker, บริหารจัดการ Infrastructure ด้วย Terraform และ Ansible, Deploy บน Kubernetes ผ่าน Jenkins CI/CD พร้อมระบบ Monitoring เต็มรูปแบบ
+> **เกมกดลิงยอดฮิตที่มีระบบ CI/CD และ Monitoring แบบ Full-Stack**  
+> พัฒนาด้วย Node.js และ Redis, ทำ Containerization ด้วย Docker, บริหารจัดการ Infrastructure ด้วย Terraform (K8s Provider) และ Ansible, Deploy บน Kubernetes ผ่าน Jenkins CI/CD แบบอัตโนมัติ 100% พร้อมระบบ Monitoring ด้วย Prometheus และ Grafana
 
 ---
 
@@ -16,47 +16,16 @@
 
 ---
 
-## 📌 ภาพรวมโปรเจค
+## 📌 ภาพรวมระบบ (Architecture & Flow)
 
-### แอปพลิเคชัน
-- **ชื่อ:** Monkey Pop Pop
-- **ประเภท:** Web Application (Real-time Clicker Game)
-- **ภาษา / Framework:** Node.js (Express), Vanilla JS, Redis (Leaderboard)
-- **คำอธิบาย:** เกมแข่งขันการคลิกเพื่อเก็บคะแนนและแสดงอันดับ Top 5 แบบ Real-time รองรับการเก็บ Metrics สำหรับ Monitoring และมีระบบ Security ด้วย API Key
+### 🔄 CI/CD Flow:
+**Code** (Developer) ➔ **Git** (Push) ➔ **Jenkins** (Webhook/Ngrok) ➔ **Docker** (Build & Push) ➔ **Terraform** (K8s Infrastructure) ➔ **Ansible** (K8s Deploy) ➔ **Kubernetes** ➔ **Monitoring** (Prometheus/Grafana)
 
-### Architecture Diagram
-```
-Developer
-    │
-    ▼  git push
- GitHub ──── webhook ────▶ Jenkins CI/CD (Build & Deploy)
-                                │
-                    ┌───────────┼───────────┐
-                    ▼           ▼           ▼
-                 Build        Test      Docker Build
-                                            │
-                                            ▼
-                                       Docker Hub (thamonwanfirst/*)
-                                            │
-                                    ┌───────┴───────┐
-                                    ▼               ▼
-                                Terraform        Ansible
-                             (Docker Env)     (K8s Deploy)
-                                    │               │
-                                    └───────┬───────┘
-                                            ▼
-                                   Kubernetes Cluster (Namespace: monkeypop)
-                                   ┌─────────────────────────┐
-                                   │  Frontend Pods (x2)     │
-                                   │  Backend Pods (x2)      │
-                                   │  Redis Pod (x1)         │
-                                   └─────────────────────────┘
-                                            │
-                              ┌─────────────┴──────────────┐
-                              ▼                             ▼
-                          Prometheus  ──────────────▶  Grafana
-                        (NodePort: 30090)            (NodePort: 30000)
-```
+### 🏗️ Infrastructure Components:
+- **Terraform:** จัดการ "โครงสร้าง" พื้นฐานใน Kubernetes (Namespace, ConfigMap, Secret)
+- **Ansible:** จัดการ "การติดตั้ง" แอปพลิเคชัน (Deployment, Service) พร้อมคำสั่ง Rollout Restart อัตโนมัติ
+- **Kubernetes:** รันแอปพลิเคชันแบบ High Availability (2 Replicas) และมี **Persistence Storage (PVC)** สำหรับ Redis
+- **Monitoring:** Dashboard 4 กราฟ (Total Pops, Trend, Memory per Pod, Top 5 Players)
 
 ---
 
@@ -64,96 +33,103 @@ Developer
 
 ```
 k8s-project/
-├── backend/                # โค้ด Backend API (Node.js)
-├── frontend/               # โค้ด Frontend Web (HTML/JS/Assets)
-├── jenkins/                # Jenkins Pipeline แยกตาม stage
-│   ├── build/              # Pipeline สำหรับ Build & Push Image
-│   └── deploy/             # Pipeline สำหรับ Deploy ผ่าน Ansible
-├── Terraform/              # Infrastructure as Code สำหรับ Docker
-├── ansible/                # Configuration Management สำหรับ K8s Deploy
-├── k8s/                    # Kubernetes Manifests (App & Monitoring)
-├── prometheus/             # การตั้งค่า Prometheus และ RBAC
-├── grafana/                # การตั้งค่า Grafana และ Dashboards
-├── Docker-compose.yml      # สำหรับรันระบบทั้งหมดบน Local Docker
-└── README.md
+├── backend/                # โค้ด Backend API (Node.js + Redis)
+├── frontend/               # โค้ด Frontend Web (Nginx)
+├── jenkins/
+│   └── build/              # Unified CI/CD Pipelines (Build -> Terraform -> Ansible)
+├── Terraform/              # Infrastructure as Code (Kubernetes Provider)
+├── ansible/                # Configuration Management (K8s Manifests)
+├── k8s/                    # Kubernetes Manifests (PVC, Deployment, Monitoring)
+├── prometheus/             # Prometheus Config & RBAC
+└── grafana/                # Grafana Dashboards Provisioning
 ```
 
 ---
 
-## 🏃 วิธีรันโปรเจค (Quick Start)
+## 🚀 วิธีการใช้งานระบบ (Full Deployment Guide)
 
-### 1. รันด้วย Docker Compose (Local Test)
+คุณสามารถเลือกใช้งานได้ 2 รูปแบบ ตามความเหมาะสม:
+
+### 1. การรันแบบอัตโนมัติ (Automated CI/CD)
+วิธีนี้เหมาะสำหรับการพัฒนาต่อเนื่อง เพียงแค่แก้ไขโค้ดแล้วส่งขึ้น Git:
+- **คำสั่ง:** `git push origin ReadMe_noey`
+- **สิ่งที่เกิดขึ้น:** Jenkins จะดึงโค้ดไป Build Docker Image ➔ ให้ Terraform เตรียม Namespace ➔ ให้ Ansible Deploy แอป ➔ และทำ Rollout Restart ให้อัตโนมัติ
+
+---
+
+### 2. การติดตั้งครั้งแรกด้วยมือ (Manual Bootstrap)
+หากคุณต้องการติดตั้งระบบทั้งหมดใหม่ตั้งแต่ต้น (Clean Install) ให้รันตามลำดับดังนี้:
+
+#### **ขั้นตอนที่ 1: เตรียมโครงสร้างพื้นฐาน (Terraform)**
+สร้าง Namespace, ConfigMap และ Secret เตรียมไว้ใน Cluster:
 ```bash
-docker-compose up -d
-# เข้าเกมที่: http://localhost
-# Prometheus: http://localhost:9090
-# Grafana: http://localhost:3000
+cd Terraform
+terraform init
+terraform apply -auto-approve
+cd ..
 ```
 
-### 2. รันบน Kubernetes (Manual Deploy)
+#### **ขั้นตอนที่ 2: เตรียมพื้นที่เก็บข้อมูล (Persistence)**
 ```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/
+kubectl apply -f k8s/pvc.yaml
+```
+
+#### **ขั้นตอนที่ 3: ติดตั้งแอปพลิเคชัน (Ansible)**
+สั่งรัน Redis และใช้ Ansible ติดตั้ง Backend/Frontend:
+```bash
+# รัน Redis
+kubectl apply -f k8s/deployment.yaml
+
+# รัน Backend & Frontend (ผ่าน Ansible)
+cd ansible/backend && ansible-playbook -i hosts.ini deploy_backend.yml
+cd ../frontend && ansible-playbook -i hosts.ini deploy_frontend.yml
+cd ../..
+```
+
+#### **ขั้นตอนที่ 4: ติดตั้งระบบ Monitoring**
+```bash
+kubectl apply -f k8s/monitoring.yaml
+kubectl apply -f k8s/monitoring-deployment.yaml
+kubectl apply -f prometheus/rbac.yaml
 ```
 
 ---
 
-## 🔄 CI/CD Pipeline (Jenkins)
+## 🔍 การตรวจสอบและเข้าใช้งาน
+เมื่อรันเสร็จแล้ว ให้เปิด Terminal เพื่อทำ **Port Forward** สำหรับเข้าถึงจากเครื่องตัวเอง:
+```bash
+# หน้าเว็บ (30001) และ API (30002)
+kubectl port-forward svc/frontend 30001:80 -n monkeypop
+kubectl port-forward svc/backend 30002:3001 -n monkeypop
 
-โปรเจคนี้แบ่ง Pipeline ออกเป็น 2 ส่วนหลัก:
-1. **Build Pipeline:** อยู่ใน `jenkins/build/` ทำหน้าที่ดึงโค้ด, Build Image และ Push ไปยัง Docker Hub (`thamonwanfirst/monkeypop-*`)
-2. **Deploy Pipeline:** อยู่ใน `jenkins/deploy/` ทำหน้าที่เรียกใช้ Ansible เพื่อ Deploy Manifests ลงใน Kubernetes Cluster
-
----
-
-## 🏗️ Infrastructure as Code
-
-### Terraform (Docker Management)
-จัดการ Docker Resources สำหรับสภาพแวดล้อมการพัฒนา:
-- **Networks:** `monkeypop-network`
-- **Containers:** Redis, Backend, Frontend
-
-### Ansible (Kubernetes Orchestration)
-ทำหน้าที่ Deploy แอปพลิเคชันลง Kubernetes อย่างแม่นยำ:
-- จัดการ Namespace `monkeypop`
-- จัดการ Deployment และ Service (NodePort)
-- กำหนดค่า Resource และพอร์ตให้ตรงกันทั้งระบบ
+# Monitoring (Grafana: 30000, Prometheus: 30090)
+kubectl port-forward svc/grafana 30000:3000 -n monkeypop
+kubectl port-forward svc/prometheus 30090:9090 -n monkeypop
+```
 
 ---
 
-## ☸️ Kubernetes Deployment
+## ☸️ Kubernetes Configuration
 
-| Service | Type | Port | NodePort |
-|---------|------|------|----------|
-| Frontend | NodePort | 80 | 30001 |
-| Backend | NodePort | 3001 | 30002 |
-| Redis | ClusterIP | 6379 | - |
-| Prometheus | NodePort | 9090 | 30090 |
-| Grafana | NodePort | 3000 | 30000 |
-
----
-
-## 📊 Monitoring
-
-ระบบ Monitoring ถูกตั้งค่าให้ทำงานบน Kubernetes โดยอัตโนมัติ:
-- **Prometheus:** ทำ Service Discovery ค้นหา Pod ของ Backend อัตโนมัติผ่าน Labels
-- **Grafana:** มีการทำ Provisioning ข้อมูลและ Dashboard "MonkeyPop Monitoring" ไว้ล่วงหน้า
-- **Metrics:** ติดตามจำนวนการคลิกรวม (Total Pops), อัตราการคลิก (Click Rate), และ Memory Usage
+| Service | Port (Internal) | NodePort | Persistence |
+|---------|-----------------|----------|-------------|
+| **Frontend** | 80 | 30001 | No |
+| **Backend** | 3001 | 30002 | No |
+| **Redis** | 6379 | - | **Yes (PVC 1GB)** |
+| **Prometheus**| 9090 | 30090 | No |
+| **Grafana** | 3000 | 30000 | No |
 
 ---
 
-## 🧪 API Endpoints
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `GET` | `/api/leaderboard` | ดึงข้อมูล Top 5 Ranking | No |
-| `POST` | `/api/score` | บันทึกคะแนนใหม่ | **Yes (x-api-key)** |
-| `GET` | `/metrics` | Prometheus Metrics | No |
+## 📊 Monitoring Dashboard (4 Panels)
+1. **Grand Total Pops:** คะแนนรวมทั้งหมดจากผู้เล่นทุกคน
+2. **Total Pops Over Time:** กราฟเส้นแสดงแนวโน้มการเติบโตของคะแนน
+3. **Memory Usage per Pod:** ติดตามการใช้ RAM ของแต่ละ Pod แยกตาม IP
+4. **Top 5 Players:** กราฟแท่งแสดงอันดับผู้เล่นที่ทำคะแนนสูงสุดแบบ Real-time
 
 ---
 
 ## 📄 ข้อมูลการส่งงาน
-
-- วิชา: **ENG23 3074 — Serverless and Cloud Architectures**
-- อาจารย์ผู้สอน: **ดร. นันทวุฒิ เกาะกุ้ง (AFHEA)**
+- **วิชา:** ENG23 3074 — Serverless and Cloud Architectures
+- **อาจารย์ผู้สอน:** ดร. นันทวุฒิ เกาะกุ้ง (AFHEA)
 - ภาควิชาวิศวกรรมคอมพิวเตอร์ มหาวิทยาลัยเทคโนโลยีสุรนารี

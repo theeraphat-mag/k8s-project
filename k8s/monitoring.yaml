@@ -33,6 +33,7 @@ data:
     datasources:
       - name: Prometheus
         type: prometheus
+        uid: Prometheus
         access: proxy
         url: http://prometheus:9090
         isDefault: true
@@ -69,19 +70,37 @@ data:
         {
           "datasource": { "type": "prometheus", "uid": "Prometheus" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } } },
-          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
           "id": 1,
-          "title": "Total Monkey Pops",
+          "title": "Grand Total Pops",
           "targets": [ { "expr": "sum(monkey_pops_total)", "refId": "A" } ],
           "type": "stat"
         },
         {
           "datasource": { "type": "prometheus", "uid": "Prometheus" },
-          "gridPos": { "h": 8, "w": 16, "x": 8, "y": 0 },
+          "gridPos": { "h": 6, "w": 18, "x": 6, "y": 0 },
           "id": 2,
-          "title": "Click Rate (Pops per Second)",
-          "targets": [ { "expr": "sum(rate(monkey_pops_total[1m]))", "refId": "A" } ],
+          "title": "Total Pops Over Time",
+          "targets": [ { "expr": "sum(monkey_pops_total)", "refId": "A" } ],
           "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "fieldConfig": { "defaults": { "unit": "bytes" } },
+          "gridPos": { "h": 10, "w": 12, "x": 0, "y": 6 },
+          "id": 3,
+          "title": "Memory Usage per Pod",
+          "targets": [ { "expr": "process_resident_memory_bytes{job=\"monkeypop-backend\"}", "legendFormat": "{{instance}}", "refId": "A" } ],
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "gridPos": { "h": 10, "w": 12, "x": 12, "y": 6 },
+          "id": 4,
+          "title": "Top 5 Players",
+          "targets": [ { "expr": "topk(5, sum by (username) (monkey_pops_total))", "refId": "A" } ],
+          "type": "bargauge",
+          "options": { "orientation": "vertical", "displayMode": "gradient" }
         }
       ],
       "schemaVersion": 38,
