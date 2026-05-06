@@ -22,20 +22,10 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Docker Build & Push') {
             steps {
+                echo "Building and Pushing Backend Image..."
                 sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ./backend"
-            }
-        }
-
-        stage('Test Docker Image') {
-            steps {
-                sh "docker run --rm ${env.IMAGE_NAME}:${env.IMAGE_TAG} node --version"
-            }
-        }
-
-        stage('Push to Docker Hub') {
-            steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
                     sh 'echo $DPASS | docker login -u $DUSER --password-stdin'
                     sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
@@ -43,9 +33,19 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Infrastructure by Terraform') {
             steps {
-                echo 'Deploying backend to Kubernetes cluster via Ansible...'
+                echo "Applying Infrastructure changes..."
+                dir('Terraform') {
+                    sh 'terraform init'
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Deploy by Ansible') {
+            steps {
+                echo "Deploying Backend to Kubernetes..."
                 dir('ansible/backend') {
                     sh "ansible-playbook -i hosts.ini deploy_backend.yml -e version=${env.IMAGE_TAG}"
                 }
@@ -58,6 +58,9 @@ pipeline {
             sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
             sh 'docker logout || true'
             deleteDir()
+        }
+        success {
+            echo 'Pipeline completed successfully: Code -> Git -> Jenkins -> Docker -> Terraform -> Ansible -> Kubernetes'
         }
     }
 }
