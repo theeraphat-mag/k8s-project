@@ -1,5 +1,30 @@
 pipeline {
-    agent { label 'built-in' }
+        agent {
+                kubernetes {
+                        label 'monkeypop-kaniko-frontend'
+                        defaultContainer 'git'
+                        yaml """
+apiVersion: v1
+kind: Pod
+spec:
+    containers:
+        - name: git
+            image: alpine/git:2.47.3
+            command:
+                - cat
+            tty: true
+        - name: kaniko
+            image: gcr.io/kaniko-project/executor:v1.24.0-debug
+            command:
+                - cat
+            tty: true
+"""
+                }
+        }
+
+        options {
+                skipDefaultCheckout(true)
+        }
 
     parameters {
         string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to build')
@@ -13,39 +38,40 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                cleanWs()
-                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'mag'
+                                container('git') {
+                                        cleanWs()
+                                        git url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'mag'
+                                }
             }
         }
 
         stage('Build and Push with Kaniko') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
-                    sh '''
-                        set -eu
+                                container('kaniko') {
+                                        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
+                                                sh '''
+                                                        set -eu
 
-                        mkdir -p "$WORKSPACE/.kaniko"
-                        AUTH="$(printf '%s:%s' "$DUSER" "$DPASS" | base64 | tr -d '\n')"
+                                                        mkdir -p /kaniko/.docker
+                                                        AUTH="$(printf '%s:%s' "$DUSER" "$DPASS" | base64 | tr -d '\n')"
 
-                        cat > "$WORKSPACE/.kaniko/config.json" <<EOF
-                        {
-                          "auths": {
-                            "https://index.docker.io/v1/": {
-                              "auth": "$AUTH"
-                            }
-                          }
-                        }
+                                                        cat > /kaniko/.docker/config.json <<EOF
+                                                        {
+                                                            "auths": {
+                                                                "https://index.docker.io/v1/": {
+                                                                    "auth": "$AUTH"
+                                                                }
+                                                            }
+                                                        }
 EOF
 
-                        docker run --rm \
-                          -v "$WORKSPACE":/workspace \
-                          -v "$WORKSPACE/.kaniko":/kaniko/.docker \
-                          gcr.io/kaniko-project/executor:v1.24.0 \
-                          --dockerfile=/workspace/frontend/Dockerfile \
-                          --context=dir:///workspace/frontend \
-                          --destination=${IMAGE_NAME}:${IMAGE_TAG} \
-                          --cache=true
-                    '''
+                                                        /kaniko/executor \
+                                                            --dockerfile=${WORKSPACE}/frontend/Dockerfile \
+                                                            --context=dir://${WORKSPACE}/frontend \
+                                                            --destination=${IMAGE_NAME}:${IMAGE_TAG} \
+                                                            --cache=true
+                                                '''
+                                        }
                 }
             }
         }
