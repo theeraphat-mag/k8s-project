@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "kubernetes" {
-  config_path = "~/.kube/config" # ใช้ config จากเครื่องที่รัน Jenkins/Terraform
+  config_path = "/var/jenkins_home/.kube/config" 
 }
 
 # 1. จัดการ Namespace หลักของโปรเจค
