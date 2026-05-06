@@ -33,16 +33,6 @@ pipeline {
             }
         }
 
-        stage('Infrastructure by Terraform') {
-            steps {
-                echo "Applying Infrastructure changes..."
-                dir('Terraform') {
-                    sh 'terraform init'
-                    sh 'terraform apply -auto-approve'
-                }
-            }
-        }
-
         stage('Deploy by Ansible') {
             steps {
                 echo "Deploying Frontend to Kubernetes..."
@@ -58,9 +48,6 @@ pipeline {
             sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
             sh 'docker logout || true'
             deleteDir()
-        }
-        success {
-            echo 'Pipeline completed successfully: Code -> Git -> Jenkins -> Docker -> Terraform -> Ansible -> Kubernetes'
         }
     }
 }
