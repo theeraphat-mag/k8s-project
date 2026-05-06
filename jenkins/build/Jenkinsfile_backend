@@ -2,12 +2,16 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to build')
+        string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to build and deploy')
     }
 
     environment {
         IMAGE_NAME = 'thamonwanfirst/monkeypop-backend'
         IMAGE_TAG = "${params.VERSION}"
+    }
+
+    triggers {
+        githubPush()
     }
 
     stages {
@@ -35,6 +39,15 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
                     sh 'echo $DPASS | docker login -u $DUSER --password-stdin'
                     sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                echo 'Deploying backend to Kubernetes cluster via Ansible...'
+                dir('ansible/backend') {
+                    sh "ansible-playbook -i hosts.ini deploy_backend.yml -e version=${env.IMAGE_TAG}"
                 }
             }
         }
