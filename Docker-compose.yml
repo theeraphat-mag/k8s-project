@@ -71,6 +71,29 @@ services:
     depends_on:
       - redis
 
+  # Proxy to access K8s Services from localhost
+  k8s-proxy:
+    image: alpine/socat
+    container_name: k8s-port-proxy
+    restart: always
+    ports:
+      - "30001:30001" # Frontend
+      - "30002:30002" # Backend
+      - "30000:30000" # Grafana
+      - "30090:30090" # Prometheus
+    command: [
+      "sh", "-c",
+      "socat TCP-LISTEN:30001,fork,reuseaddr TCP:172.18.0.4:30001 & socat TCP-LISTEN:30002,fork,reuseaddr TCP:172.18.0.4:30002 & socat TCP-LISTEN:30000,fork,reuseaddr TCP:172.18.0.4:30000 & socat TCP-LISTEN:30090,fork,reuseaddr TCP:172.18.0.4:30090"
+    ]
+    networks:
+      - default
+      - kind
+
+networks:
+  default:
+  kind:
+    external: true
+
 volumes:
   grafana-storage:
   jenkins-data:
