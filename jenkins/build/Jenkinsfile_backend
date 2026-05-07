@@ -38,6 +38,8 @@ pipeline {
                 echo "Applying Infrastructure changes..."
                 dir('Terraform') {
                     sh 'terraform init'
+                    sh 'terraform import kubernetes_config_map.backend_config monkeypop/backend-config || true'
+                    sh 'terraform import kubernetes_secret.backend_secret monkeypop/backend-secret || true'
                     sh 'terraform apply -auto-approve'
                 }
             }
