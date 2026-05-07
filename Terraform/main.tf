@@ -1,0 +1,45 @@
+terraform {
+  required_providers {
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.23.0"
+    }
+  }
+}
+
+provider "kubernetes" {
+  config_path = "/var/jenkins_home/.kube/config" 
+}
+
+# 1. อ้างอิง Namespace ที่มีอยู่แล้ว (แทนการสร้างใหม่เพื่อป้องกัน Error: already exists)
+data "kubernetes_namespace" "monkeypop" {
+  metadata {
+    name = "monkeypop"
+  }
+}
+
+# 2. จัดการ ConfigMap สำหรับแอปพลิเคชัน
+resource "kubernetes_config_map" "backend_config" {
+  metadata {
+    name      = "backend-config"
+    namespace = data.kubernetes_namespace.monkeypop.metadata[0].name
+  }
+
+  data = {
+    REDIS_URL = "redis://redis:6379"
+  }
+}
+
+# 3. จัดการ Secret (เช่น API Key) เพื่อความปลอดภัย
+resource "kubernetes_secret" "backend_secret" {
+  metadata {
+    name      = "backend-secret"
+    namespace = data.kubernetes_namespace.monkeypop.metadata[0].name
+  }
+
+  data = {
+    API_KEY = "monkey-secret-key"
+  }
+
+  type = "Opaque"
+}

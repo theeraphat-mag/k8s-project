@@ -1,0 +1,66 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'VERSION', defaultValue: 'latest', description: 'Image version to build and deploy')
+    }
+
+    environment {
+        IMAGE_NAME = 'thamonwanfirst/monkeypop-backend'
+        IMAGE_TAG = "${params.VERSION}"
+    }
+
+    triggers {
+        githubPush()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                deleteDir()
+                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'ReadMe_noey'
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                echo "Building and Pushing Backend Image..."
+                sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ./backend"
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
+                    sh 'echo $DPASS | docker login -u $DUSER --password-stdin'
+                    sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Infrastructure by Terraform') {
+            steps {
+                echo "Applying Infrastructure changes..."
+                dir('Terraform') {
+                    sh 'terraform init'
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Deploy by Ansible') {
+            steps {
+                echo "Deploying Backend to Kubernetes..."
+                dir('ansible/backend') {
+                    sh "ansible-playbook -i hosts.ini deploy_backend.yml -e version=${env.IMAGE_TAG}"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
+            sh 'docker logout || true'
+            deleteDir()
+        }
+        success {
+            echo 'Pipeline completed successfully: Code -> Git -> Jenkins -> Docker -> Terraform -> Ansible -> Kubernetes'
+        }
+    }
+}

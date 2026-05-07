@@ -323,11 +323,18 @@ function startGame() {
             document.getElementById('final-score').innerText = score;
             document.getElementById('result-section').classList.remove('hidden');
 
+            // ในโปรเจคนี้เราใช้ API Key เพื่อสาธิตการใช้ K8s Secret
+            // สำหรับ App จริง ไม่ควรวาง Secret ไว้ใน Frontend โดยตรง
+            const API_KEY = "monkey-secret-key"; 
+
             try {
                 // ส่งคะแนนทีเดียวตอนจบเกม
                 await fetch(`${API_URL}/api/score`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': API_KEY
+                    },
                     body: JSON.stringify({ username: user, score: score })
                 });
                 await loadLeaderboard(); // อัปเดตบอร์ดให้เห็นคะแนนเราที่เพิ่งส่งไป

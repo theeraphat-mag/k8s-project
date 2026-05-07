@@ -1,0 +1,63 @@
+
+- name: Deploy Backend on Kubernetes
+  hosts: server
+  vars:
+    version: "latest"   
+  tasks:
+    - name: Create monkeypop namespace
+      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl create namespace monkeypop --dry-run=client -o yaml | kubectl apply -f - --validate=false
+
+    - name: Deploy Backend
+      shell: |
+        export KUBECONFIG=/var/jenkins_home/.kube/config
+        kubectl apply -f - --validate=false <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: backend
+          namespace: monkeypop
+        spec:
+          replicas: 2
+          selector:
+            matchLabels:
+              app: backend
+          template:
+            metadata:
+              labels:
+                app: backend
+            spec:
+              containers:
+              - name: backend
+                image: thamonwanfirst/monkeypop-backend:{{ version }}
+                imagePullPolicy: Always
+                ports:
+                - containerPort: 3001
+                env:
+                - name: REDIS_URL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: backend-config
+                      key: REDIS_URL
+        EOF
+
+    - name: Create Backend Service
+      shell: |
+        export KUBECONFIG=/var/jenkins_home/.kube/config
+        kubectl apply -f - --validate=false <<EOF
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: backend
+          namespace: monkeypop
+        spec:
+          type: NodePort
+          selector:
+            app: backend
+          ports:
+          - port: 3001
+            targetPort: 3001
+            nodePort: 30002
+        EOF
+
+    - name: Force Rollout Restart
+      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl rollout restart deployment/backend -n monkeypop

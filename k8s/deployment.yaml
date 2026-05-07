@@ -16,8 +16,16 @@ spec:
       containers:
       - name: redis
         image: redis:alpine
+        command: ["redis-server", "--appendonly", "yes"]
         ports:
         - containerPort: 6379
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -37,6 +45,7 @@ spec:
       containers:
       - name: backend
         image: thamonwanfirst/monkeypop-backend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 3001
         env:
@@ -69,5 +78,6 @@ spec:
       containers:
       - name: frontend
         image: thamonwanfirst/monkeypop-frontend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
