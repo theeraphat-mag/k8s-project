@@ -166,6 +166,7 @@ kubectl port-forward svc/frontend 30001:80 -n monkeypop
 # Backend
 kubectl port-forward svc/backend 30002:3001 -n monkeypop
 ```
+kubectl get svc -n monkeypop
 
 ---
 
