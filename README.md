@@ -176,10 +176,10 @@ kubectl port-forward svc/backend 30002:3001 -n monkeypop
 - **Grafana:** แสดงผล Dashboard ที่สวยงาม
 
 ### Panels ใน Dashboard
-- **Grand Total Pops:** ยอดคลิกรวมทั้งหมด
-- **Total Pops Over Time:** สถิติการคลิกย้อนหลัง
-- **Memory Usage per Pod:** การใช้ทรัพยากรของแต่ละ Pod
-- **Top 5 Players:** อันดับผู้เล่นสูงสุด
+- **Total Monkey Pops:** ยอดคลิกรวมทั้งหมด
+- **Total Pop Rate:** อัตราการคลิกแบบรวม
+- **Pops by Pod:** การแสดงค่าการคลิกแยกแต่ละ Pod
+- **Memory by Pod:** การใช้ทรัพยากรของแต่ละ Pod
 
 ---
 

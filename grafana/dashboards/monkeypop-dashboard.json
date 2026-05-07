@@ -44,7 +44,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 6,
         "x": 0,
         "y": 0
       },
@@ -134,8 +134,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 16,
-        "x": 8,
+        "w": 18,
+        "x": 6,
         "y": 0
       },
       "id": 2,
@@ -163,7 +163,7 @@
           "refId": "A"
         }
       ],
-      "title": "Click Rate (Pops per Second)",
+      "title": "Total Pop Rate",
       "type": "timeseries"
     },
     {
@@ -182,7 +182,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
+            "fillOpacity": 12,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -190,7 +190,94 @@
               "viz": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (pod) (rate(monkey_pops_total[1m]))",
+          "legendFormat": "{{pod}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Pops by Pod",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -220,12 +307,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
+        "h": 10,
+        "w": 12,
+        "x": 12,
         "y": 8
       },
-      "id": 3,
+      "id": 4,
       "options": {
         "legend": {
           "calcs": [],
@@ -245,12 +332,13 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "process_resident_memory_bytes{job=\"monkeypop-backend\"}",
+          "expr": "sum by (pod) (process_resident_memory_bytes{job=\"monkeypop-backend\"})",
+          "legendFormat": "{{pod}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Backend Memory Usage",
+      "title": "Memory by Pod",
       "type": "timeseries"
     }
   ],
