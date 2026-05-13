@@ -4,6 +4,8 @@ services:
   prometheus:
     image: prom/prometheus
     container_name: prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
@@ -84,8 +86,9 @@ services:
       - "30002:30002" # Backend
       - "30000:30000" # Grafana
       - "30090:30090" # Prometheus
+      - "30081:30081" # Kube-state-metrics
     command: [
-      "socat TCP-LISTEN:30001,fork,reuseaddr TCP:172.18.0.4:30001 & socat TCP-LISTEN:30002,fork,reuseaddr TCP:172.18.0.4:30002 & socat TCP-LISTEN:30000,fork,reuseaddr TCP:172.18.0.4:30000 & socat TCP-LISTEN:30090,fork,reuseaddr TCP:172.18.0.4:30090"
+      "socat TCP-LISTEN:30001,fork,reuseaddr TCP:172.18.0.4:30001 & socat TCP-LISTEN:30002,fork,reuseaddr TCP:172.18.0.4:30002 & socat TCP-LISTEN:30000,fork,reuseaddr TCP:172.18.0.4:30000 & socat TCP-LISTEN:30090,fork,reuseaddr TCP:172.18.0.4:30090 & socat TCP-LISTEN:30081,fork,reuseaddr TCP:172.18.0.4:30081"
     ]
     networks:
       - default

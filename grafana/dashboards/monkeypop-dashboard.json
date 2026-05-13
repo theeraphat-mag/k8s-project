@@ -244,13 +244,13 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (pod) (rate(monkey_pops_total[1m]))",
-          "legendFormat": "{{pod}}",
+          "expr": "sum by (instance) (rate(container_network_receive_bytes_total{namespace=\"monkeypop\"}[1m]))",
+          "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Pops by Pod",
+      "title": "Network I/O",
       "type": "timeseries"
     },
     {
@@ -332,8 +332,8 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (pod) (process_resident_memory_bytes{job=\"monkeypop-backend\"})",
-          "legendFormat": "{{pod}}",
+          "expr": "sum by (instance) (process_resident_memory_bytes{job=\"monkeypop-backend-k8s\"})",
+          "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
