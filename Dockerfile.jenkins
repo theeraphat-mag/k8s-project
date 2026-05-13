@@ -8,9 +8,14 @@ RUN apt-get update && apt-get install -y \
     curl \
     unzip \
     wget \
-    gnupg \
-    software-properties-common \
-    ansible
+    gnupg && \
+    apt-get clean
+
+# Install Ansible (using pip for better compatibility if not in apt)
+RUN apt-get update && apt-get install -y python3-pip python3-venv && \
+    python3 -m venv /opt/ansible-venv && \
+    /opt/ansible-venv/bin/pip install ansible
+ENV PATH="/opt/ansible-venv/bin:$PATH"
 
 # Install Docker CLI
 RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
@@ -23,6 +28,15 @@ RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
 RUN wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip && \
     unzip terraform_1.5.7_linux_amd64.zip -d /usr/local/bin/ && \
     rm terraform_1.5.7_linux_amd64.zip
+
+# Install kubectl
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl && \
+    mv kubectl /usr/local/bin/
+
+# Install Node.js (for the 'Build' stage)
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs
 
 # Set user back to jenkins
 USER jenkins

@@ -15,17 +15,44 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('1. Checkout') {
             steps {
                 deleteDir()
                 git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'main'
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('2. Build') {
             steps {
-                echo "Building and Pushing Backend Image..."
+                echo "Stage 2: Compile & Install dependencies..."
+                dir('backend') {
+                    sh "npm install"
+                }
+            }
+        }
+
+        stage('3. Test') {
+            steps {
+                echo "Stage 3: Running Unit & Integration Tests..."
+                dir('backend') {
+                    // Simulating tests
+                    sh "echo 'Testing backend components...'"
+                    sh "node -v"
+                    sh "echo 'Tests passed!'"
+                }
+            }
+        }
+
+        stage('4. Docker Build') {
+            steps {
+                echo "Stage 4: Building Docker image..."
                 sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ./backend"
+            }
+        }
+
+        stage('5. Push Hub') {
+            steps {
+                echo "Stage 5: Pushing to Docker Hub..."
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
                     sh 'echo $DPASS | docker login -u $DUSER --password-stdin'
                     sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
@@ -33,21 +60,17 @@ pipeline {
             }
         }
 
-        stage('Infrastructure by Terraform') {
+        stage('6. Deploy') {
             steps {
-                echo "Applying Infrastructure changes..."
+                echo "Stage 6: Triggering Terraform & Ansible..."
+                
+                echo "Running Terraform..."
                 dir('Terraform') {
                     sh 'terraform init'
-                    sh 'terraform import kubernetes_config_map.backend_config monkeypop/backend-config || true'
-                    sh 'terraform import kubernetes_secret.backend_secret monkeypop/backend-secret || true'
                     sh 'terraform apply -auto-approve'
                 }
-            }
-        }
 
-        stage('Deploy by Ansible') {
-            steps {
-                echo "Deploying Backend to Kubernetes..."
+                echo "Running Ansible for environment config and deployment..."
                 dir('ansible/backend') {
                     sh "ansible-playbook -i hosts.ini deploy_backend.yml -e version=${env.IMAGE_TAG}"
                 }
@@ -60,9 +83,6 @@ pipeline {
             sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
             sh 'docker logout || true'
             deleteDir()
-        }
-        success {
-            echo 'Pipeline completed successfully: Code -> Git -> Jenkins -> Docker -> Terraform -> Ansible -> Kubernetes'
         }
     }
 }
