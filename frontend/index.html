@@ -289,7 +289,7 @@ function startGame() {
                 timeLeft--;
                 document.getElementById('timer-box').innerText = timeLeft;
                 
-                const offset = totalDash - (timeLeft / 60) * totalDash;
+                const offset = totalDash - (timeLeft / 30) * totalDash;
                 progressBar.style.strokeDashoffset = offset;
 
                 if (timeLeft <= 10) progressBar.style.stroke = "#ffcc00";
