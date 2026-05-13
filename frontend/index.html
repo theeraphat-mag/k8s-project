@@ -211,7 +211,7 @@
 
     <script>
         let score = 0;
-        let timeLeft = 60;
+        let timeLeft = 30;
         let timerId;
         let boardIntervalId;
         let isMuted = false;
@@ -271,7 +271,7 @@ function startGame() {
             }).catch(e => console.log("Audio unlock interaction needed"));
             
             score = 0;
-            timeLeft = 60;
+            timeLeft = 30;
             scoreDisplay.innerText = "0";
             
             document.getElementById('login-section').classList.add('hidden');
@@ -289,7 +289,7 @@ function startGame() {
                 timeLeft--;
                 document.getElementById('timer-box').innerText = timeLeft;
                 
-                const offset = totalDash - (timeLeft / 30) * totalDash;
+                const offset = totalDash - (timeLeft / 60) * totalDash;
                 progressBar.style.strokeDashoffset = offset;
 
                 if (timeLeft <= 10) progressBar.style.stroke = "#ffcc00";

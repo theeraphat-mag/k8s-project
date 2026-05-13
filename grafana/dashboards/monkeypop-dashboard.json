@@ -158,12 +158,12 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(monkey_pops_total[1m]))",
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"monkeypop\"})",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Total Pop Rate",
+      "title": "Pod Restarts",
       "type": "timeseries"
     },
     {
@@ -244,13 +244,13 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(container_network_receive_bytes_total{namespace=\"monkeypop\"}[1m]))",
-          "legendFormat": "{{instance}}",
+          "expr": "sum by (phase) (kube_pod_status_phase{namespace=\"monkeypop\"})",
+          "legendFormat": "{{phase}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Network I/O",
+      "title": "Pods Status",
       "type": "timeseries"
     },
     {

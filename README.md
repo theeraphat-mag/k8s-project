@@ -177,10 +177,10 @@ kubectl get svc -n monkeypop
 - **Grafana:** แสดงผล Dashboard ที่สวยงาม
 
 ### Panels ใน Dashboard
-- **Total Monkey Pops:** ยอดคลิกรวมทั้งหมด
-- **Total Pop Rate:** อัตราการคลิกแบบรวม
-- **Pops by Pod:** การแสดงค่าการคลิกแยกแต่ละ Pod
-- **Memory by Pod:** การใช้ทรัพยากรของแต่ละ Pod
+  - **Total Monkey Pops:** จำนวนการกดทั้งหมด
+  - **Pod Restarts:** ตรวจสอบความเสถียรของ Pod ใน K8s
+  - **Pods Status:** ตรวจสอบสถานะ Pod (Running/Pending/Failed)
+  - **Memory by Pod:** การใช้หน่วยความจำของแต่ละอินสแตนซ์
 
 ---
 
