@@ -39,23 +39,23 @@ services:
     volumes:
       - redis-data:/data
 
-  backend:
-    build: ./backend
-    container_name: monkeypop-backend
-    ports:
-      - "3001:3001"
-    depends_on:
-      - redis
-    environment:
-      - REDIS_URL=redis://redis:6379
+  # backend:
+  #   build: ./backend
+  #   container_name: monkeypop-backend
+  #   ports:
+  #     - "3001:3001"
+  #   depends_on:
+  #     - redis
+  #   environment:
+  #     - REDIS_URL=redis://redis:6379
 
-  frontend:
-    build: ./frontend
-    container_name: monkeypop-frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
+  # frontend:
+  #   build: ./frontend
+  #   container_name: monkeypop-frontend
+  #   ports:
+  #     - "80:80"
+  #   depends_on:
+  #     - backend
 
   jenkins:
     image: jenkins/jenkins:lts

@@ -127,28 +127,49 @@ ansible-playbook -i frontend/hosts.ini frontend/deploy_frontend.yml
 1. **Backend Pipeline:** จัดการ Build Image และเตรียม Infrastructure (Terraform)
 2. **Frontend Pipeline:** จัดการ Build Image และ Deploy แอปพลิเคชัน (Ansible)
 
+### Backend Pipeline Stages
+
 | Stage | คำอธิบาย |
 |-------|----------|
 | **Checkout** | ดึงโค้ดล่าสุดจาก GitHub |
-| **Docker Build** | สร้าง Docker image จาก Dockerfile ใน backend/frontend |
-| **Push to Hub** | อัปโหลด image ขึ้น Docker Hub |
-| **Infrastructure** | (เฉพาะ Backend) รัน Terraform เพื่อสร้าง Namespace และ Resources |
-| **Deploy** | รัน Ansible เพื่อ Deploy และ Rollout Restart Pods ใน K8s |
+| **Docker Build** | สร้าง Docker image จาก backend/Dockerfile |
+| **Docker Push** | อัปโหลด image ขึ้น Docker Hub |
+| **Infrastructure by Terraform** | รัน Terraform เพื่อสร้าง Namespace, ConfigMap และ Secret |
+| **Deploy by Ansible** | รัน Ansible เพื่อ Deploy backend ลง Kubernetes |
+| **Verify Deployment** | ตรวจ rollout status และ service ของ backend |
+
+### Frontend Pipeline Stages
+
+| Stage | คำอธิบาย |
+|-------|----------|
+| **Checkout** | ดึงโค้ดล่าสุดจาก GitHub |
+| **Docker Build** | สร้าง Docker image จาก frontend/Dockerfile |
+| **Docker Push** | อัปโหลด image ขึ้น Docker Hub |
+| **Deploy by Ansible** | รัน Ansible เพื่อ Deploy frontend ลง Kubernetes |
+| **Verify Deployment** | ตรวจ rollout status และ service ของ frontend |
+| **Cleanup** | ล้าง image หลังจบ pipeline |
 
 ---
 
 ## 🏗️ Infrastructure as Code
 
 ### Terraform — Provision Infrastructure
-ใช้ Terraform (Kubernetes Provider) ในการจัดการ:
+ใช้ Terraform (Kubernetes Provider) ในการจัดการ resource ฝั่ง Kubernetes ที่ Jenkins ต้องใช้ก่อน deploy:
 - **Namespace:** `monkeypop`
 - **ConfigMap:** เก็บการตั้งค่า environment
 - **Secret:** เก็บข้อมูลสำคัญ เช่น API Key
+
+### Workflow ที่ใช้จริงใน CI/CD
+1. Jenkins สร้างและ push Docker image ไปที่ Docker Hub
+2. Terraform เตรียม resource พื้นฐานของคลัสเตอร์ เช่น Namespace, ConfigMap และ Secret
+3. Ansible นำ image เวอร์ชันใหม่ไป apply กับ Kubernetes manifest
+4. Ansible ตรวจสอบ rollout และ service หลัง deploy เพื่อยืนยันว่า pod พร้อมใช้งาน
 
 ### Ansible — Configure Environment
 ใช้ Ansible ในการ:
 - จัดการการ Deploy Kubernetes manifests
 - ทำ **Rollout Restart** เพื่อให้อัปเดต image ใหม่โดยไม่มี downtime
+- ตรวจสอบสถานะ `rollout status`, `pods`, และ `services` หลัง deploy
 
 ---
 
@@ -167,6 +188,21 @@ kubectl port-forward svc/frontend 30001:80 -n monkeypop
 kubectl port-forward svc/backend 30002:3001 -n monkeypop
 ```
 kubectl get svc -n monkeypop
+
+### ลำดับ Deploy ที่ตรวจได้จาก pipeline
+```bash
+# 1) Terraform สร้าง backend-config และ backend-secret
+cd Terraform
+terraform init
+terraform apply -auto-approve
+
+# 2) Ansible deploy และ verify
+cd ../ansible/backend
+ansible-playbook -i hosts.ini deploy_backend.yml -e version=latest
+
+cd ../frontend
+ansible-playbook -i hosts.ini deploy_frontend.yml -e version=latest
+```
 
 ---
 

@@ -54,3 +54,13 @@
 
     - name: Force Rollout Restart
       shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl rollout restart deployment/frontend -n monkeypop
+
+    - name: Wait for Frontend Rollout
+      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl rollout status deployment/frontend -n monkeypop --timeout=120s
+
+    - name: Verify Frontend Resources
+      shell: |
+        export KUBECONFIG=/var/jenkins_home/.kube/config
+        kubectl get pods -n monkeypop -l app=frontend
+        kubectl get svc frontend -n monkeypop
+        kubectl get endpoints frontend -n monkeypop

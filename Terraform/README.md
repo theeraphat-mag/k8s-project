@@ -1,9 +1,11 @@
-# Terraform: Docker Infrastructure
+# Terraform: Kubernetes Infrastructure
 
-This directory contains Terraform configuration to build and run Docker containers for:
-- **nginx** (reverse proxy/web server)
-- **backend** (Node.js app from `../backend`)
-- **frontend** (HTML/static from `../frontend`)
+This directory contains Terraform configuration for the Kubernetes resources that Jenkins prepares before deployment:
+- **Namespace** for the application
+- **ConfigMap** for backend runtime settings
+- **Secret** for backend credentials
+
+Terraform is used here as the infrastructure bootstrap layer, not as the application deploy tool. The application pods themselves are applied by Ansible and Kubernetes manifests.
 
 ## Quick Start
 
@@ -23,51 +25,22 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 **Or manually:** Download from https://www.terraform.io/downloads
 
-### Step 2: Configure Variables (optional)
+### Step 2: Initialize & Apply
 
-Copy the example variables file and customize:
-```bash
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your settings
-```
-
-### Step 3: Initialize & Apply
-
-**Using Make (Linux/macOS):**
-```bash
-make init
-make plan
-make apply
-```
-
-**Using Terraform directly:**
 ```bash
 cd Terraform
 terraform init
 terraform validate
-terraform plan -out=tfplan
-terraform apply tfplan
-```
-
-**Auto-approve (no confirmation):**
-```bash
 terraform apply -auto-approve
 ```
 
-## Default Configuration
+## What Terraform Manages
 
-- **Frontend:** http://localhost:3000 (port 3000)
-- **Backend:** http://localhost:3001 (port 3001)
-- **Nginx:** http://localhost:8000 (port 8000)
+- `Namespace`: `monkeypop`
+- `ConfigMap`: `backend-config`
+- `Secret`: `backend-secret`
 
-## Override Variables at Runtime
-
-```bash
-terraform apply \
-  -var 'backend_external_port=3001' \
-  -var 'frontend_external_port=3000' \
-  -auto-approve
-```
+These objects are shared inputs for the backend deploy stage in Jenkins.
 
 ## Cleanup
 
@@ -107,48 +80,29 @@ terraform apply tfplan
 
 ## Requirements
 
-- Docker daemon running
-  - Linux: `/var/run/docker.sock` accessible
-  - macOS: Docker Desktop running
-  - Windows: Docker Desktop running (WSL2 backend recommended)
+- Kubernetes cluster access from the Jenkins host
+- `kubectl` configured for the target cluster
 - Terraform 1.0+
-- Network access to download Docker images
+- Network access to the Kubernetes API server
 
 ## Troubleshooting
 
-**Docker connection error:**
-- Ensure Docker daemon is running (`docker ps` works)
-- On Windows, check Docker Desktop is active
-- If using remote Docker, set `docker_host` in `terraform.tfvars`
+**Kubernetes connection error:**
+- Ensure Jenkins can read `/var/jenkins_home/.kube/config`
+- Confirm the target namespace exists or is created before apply
+- Check cluster access with `kubectl get ns`
 
-**Port already in use:**
-- Change port in `terraform.tfvars` (e.g., `backend_external_port = 3002`)
-- Or stop existing containers: `docker ps` then `docker stop <container>`
-
-**Permission denied (Linux):**
-- Add user to docker group: `sudo usermod -aG docker $USER`
-- Then log out and log back in
+**Terraform state error:**
+- Run `terraform init` again if the provider lock file changes
+- Use `terraform fmt -recursive` before committing changes
 
 ## Outputs
 
-After `terraform apply`, view outputs:
+This configuration does not create runtime app containers. It provisions the Kubernetes objects that the Jenkins pipeline deploys into.
+
+## Cleanup
+
 ```bash
-terraform output
-# Show specific output:
-terraform output backend_container_id
-terraform output frontend_external_port
+terraform destroy -auto-approve
 ```
-
-## Git Workflow
-
-These files are safe to commit:
-- `*.tf` files ✓
-- `terraform.tfvars.example` ✓
-- `.gitignore`, `setup.sh`, `setup.ps1`, `Makefile` ✓
-
-These are **NOT** committed (in `.gitignore`):
-- `terraform.tfvars` (contains local settings)
-- `.terraform/` (local cache)
-- `terraform.tfstate*` (local state)
-- `tfplan` (temporary plan files)
 

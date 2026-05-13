@@ -18,14 +18,19 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'main'
+                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'refactor'
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('Docker Build') {
             steps {
                 echo "Building and Pushing Frontend Image..."
                 sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ./frontend"
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
                     sh 'echo $DPASS | docker login -u $DUSER --password-stdin'
                     sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
@@ -39,6 +44,20 @@ pipeline {
                 dir('ansible/frontend') {
                     sh "ansible-playbook -i hosts.ini deploy_frontend.yml -e version=${env.IMAGE_TAG}"
                 }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                echo "Verifying Frontend deployment..."
+                sh 'kubectl rollout status deployment/frontend -n monkeypop --timeout=120s'
+                sh 'kubectl get svc frontend -n monkeypop'
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                echo "Frontend pipeline cleanup completed in post block"
             }
         }
     }

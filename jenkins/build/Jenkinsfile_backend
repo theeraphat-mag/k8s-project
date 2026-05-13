@@ -18,14 +18,19 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'main'
+                git credentialsId: 'github', url: 'https://github.com/theeraphat-mag/k8s-project.git', branch: 'refactor'
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('Docker Build') {
             steps {
                 echo "Building and Pushing Backend Image..."
                 sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ./backend"
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DUSER', passwordVariable: 'DPASS')]) {
                     sh 'echo $DPASS | docker login -u $DUSER --password-stdin'
                     sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
@@ -53,6 +58,15 @@ pipeline {
                 }
             }
         }
+
+        stage('Verify Deployment') {
+            steps {
+                echo "Verifying Backend deployment..."
+                sh 'kubectl rollout status deployment/backend -n monkeypop --timeout=120s'
+                sh 'kubectl get svc backend -n monkeypop'
+            }
+        }
+
     }
 
     post {
