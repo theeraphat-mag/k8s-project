@@ -1,271 +1,174 @@
-# อธิบายโครงสร้างโปรเจกต์ Monkey Pop Pop
+# อธิบายโปรเจกต์ Monkey Pop Pop แบบไล่ตาม Flow การทำงาน
 
-โปรเจกต์นี้คือเว็บเกม **Monkey Pop Pop** ที่มีทั้งหน้าเว็บเกม, backend API, ฐานข้อมูล Redis, ระบบ deploy ด้วย Docker/Kubernetes, pipeline อัตโนมัติด้วย Jenkins, Infrastructure as Code ด้วย Terraform/Ansible และระบบ Monitoring ด้วย Prometheus/Grafana
-
-ภาพรวมการทำงานคือ ผู้เล่นเปิดหน้าเว็บจาก `frontend` แล้วกดเล่นเกม เมื่อจบเกม frontend จะส่งคะแนนไปที่ `backend` จากนั้น backend จะเก็บคะแนนใน `Redis` และเปิด `/metrics` ให้ `Prometheus` ดึงข้อมูลไปแสดงผลบน `Grafana`
+เอกสารนี้อธิบายโปรเจกต์ **Monkey Pop Pop** โดยไล่ตามลำดับการทำงานจริงของระบบ ตั้งแต่ผู้พัฒนาเขียนโค้ด, build เป็น Docker image, deploy ขึ้น Kubernetes, ผู้เล่นเข้าใช้งานเกม, backend บันทึกคะแนนลง Redis, ไปจนถึง Prometheus และ Grafana ที่ใช้ monitoring ระบบ
 
 ---
 
-## โครงสร้างหลักของโปรเจกต์
+## 1. ภาพรวมของระบบ
 
-```text
-k8s-project/
-├── ansible/
-├── backend/
-├── frontend/
-├── grafana/
-├── jenkins/
-├── k8s/
-├── prometheus/
-├── Terraform/
-├── .gitignore
-├── Docker-compose.yml
-├── Dockerfile.jenkins
-├── README.md
-└── readawrite.md
-```
+โปรเจกต์นี้เป็นเว็บเกมแบบ Full-stack มีส่วนประกอบหลักดังนี้
 
----
-
-## ไฟล์ในโฟลเดอร์หลัก
-
-### `README.md`
-
-เป็นเอกสารหลักของโปรเจกต์ ใช้อธิบายภาพรวมโปรเจกต์ วิธีรัน ระบบ CI/CD, Kubernetes, Terraform, Ansible, Prometheus และ Grafana
-
-### `readawrite.md`
-
-เป็นไฟล์เอกสารที่ใช้สรุปและอธิบายหน้าที่ของแต่ละโฟลเดอร์และแต่ละไฟล์ในโปรเจกต์
-
-### `.gitignore`
-
-ใช้กำหนดไฟล์หรือโฟลเดอร์ที่ไม่ต้องการให้ Git track เช่น
-
-- `node_modules/`
-- `dist/`
-- `*.log`
-- `.env`
-- `grafana-storage/`
-- `jenkins-data/`
-
-### `Docker-compose.yml`
-
-ใช้รันระบบหลาย container พร้อมกันแบบ local โดยรวม service หลัก เช่น
-
-- `frontend`
-- `backend`
-- `redis`
-- `prometheus`
-- `grafana`
-- `jenkins`
-- `node-exporter`
-- `k8s-proxy`
-
-ไฟล์นี้เหมาะสำหรับใช้ทดสอบระบบทั้งหมดบนเครื่อง local ก่อน deploy จริง
-
-### `Dockerfile.jenkins`
-
-ใช้สร้าง Jenkins image สำหรับโปรเจกต์นี้โดยเฉพาะ ภายใน Jenkins image จะติดตั้งเครื่องมือที่จำเป็น เช่น
-
-- Ansible
-- Docker CLI
-- Terraform
-- kubectl
-- Node.js
-
-เพราะ Jenkins ต้องใช้เครื่องมือเหล่านี้ในการ build image, push image, สร้าง infrastructure และ deploy ไป Kubernetes
-
----
-
-## โฟลเดอร์ `backend/`
-
-โฟลเดอร์นี้คือส่วน backend API ของเกม เขียนด้วย Node.js และ Express ทำหน้าที่รับคะแนน เก็บคะแนนใน Redis และเปิด metrics ให้ Prometheus
-
-```text
-backend/
-├── Dockerfile
-├── package.json
-└── server.js
-```
-
-### `backend/server.js`
-
-เป็นไฟล์หลักของ backend ทำหน้าที่เปิด Express server ที่ port `3001`
-
-หน้าที่สำคัญ:
-
-- เชื่อมต่อ Redis ผ่าน `REDIS_URL`
-- เปิด API สำหรับส่งคะแนน
-- เปิด API สำหรับดึง leaderboard
-- เปิด endpoint `/metrics` ให้ Prometheus ดึงข้อมูล
-- ใช้ `prom-client` เก็บ metrics ชื่อ `monkey_pops_total`
-- ตรวจสอบ API key จาก header `x-api-key`
-
-API ที่มีในไฟล์นี้:
-
-| Method | Endpoint | หน้าที่ |
+| ส่วนของระบบ | โฟลเดอร์/ไฟล์ที่เกี่ยวข้อง | หน้าที่ |
 |---|---|---|
-| `GET` | `/metrics` | ให้ Prometheus ดึง metrics |
-| `GET` | `/api/leaderboard` | ดึง Top 5 leaderboard จาก Redis |
-| `POST` | `/api/score` | รับคะแนนผู้เล่นแล้วบันทึกลง Redis |
+| Frontend | `frontend/` | หน้าเว็บเกมที่ผู้เล่นใช้งาน |
+| Backend | `backend/` | API สำหรับรับคะแนน ดึง leaderboard และส่ง metrics |
+| Database | Redis | เก็บคะแนน leaderboard |
+| Container | `Dockerfile`, `Docker-compose.yml` | สร้างและรันระบบในรูปแบบ container |
+| CI/CD | `jenkins/` | build, push image และ deploy อัตโนมัติ |
+| Infrastructure | `Terraform/` | สร้าง namespace, ConfigMap และ Secret |
+| Deployment | `ansible/`, `k8s/` | deploy app เข้า Kubernetes |
+| Monitoring | `prometheus/`, `grafana/`, `k8s/monitoring*.yaml` | เก็บ metrics และแสดง dashboard |
 
-### `backend/package.json`
+Flow รวมของระบบคือ
 
-เป็นไฟล์กำหนดข้อมูลของ Node.js project เช่น ชื่อโปรเจกต์ script สำหรับรัน และ dependencies
-
-dependencies ที่ใช้:
-
-- `express` สำหรับสร้าง API server
-- `redis` สำหรับเชื่อมต่อฐานข้อมูล Redis
-- `cors` สำหรับอนุญาตให้ frontend เรียก backend ได้
-- `prom-client` สำหรับสร้าง metrics ให้ Prometheus
-- `uuid` สำหรับสร้าง unique id ถ้าต้องใช้ในอนาคต
-
-คำสั่งหลัก:
-
-```bash
-npm start
+```text
+Developer
+  -> GitHub
+  -> Jenkins
+  -> Docker Build
+  -> Docker Hub
+  -> Terraform
+  -> Ansible
+  -> Kubernetes
+  -> Frontend / Backend / Redis
+  -> Prometheus
+  -> Grafana
 ```
-
-### `backend/Dockerfile`
-
-ใช้ build backend เป็น Docker image
-
-ขั้นตอนหลัก:
-
-1. ใช้ base image `node:18-alpine`
-2. ตั้ง working directory เป็น `/app`
-3. copy `package.json`
-4. ติดตั้ง dependencies ด้วย `npm install`
-5. copy source code ทั้งหมด
-6. expose port `3001`
-7. รัน backend ด้วย `npm start`
 
 ---
 
-## โฟลเดอร์ `frontend/`
+## 2. เริ่มจาก Source Code ของแอป
 
-โฟลเดอร์นี้คือหน้าเว็บเกม Monkey Pop Pop เป็น static website ที่ใช้ HTML, CSS และ JavaScript
+ส่วนแรกของโปรเจกต์คือ source code ของเกม แบ่งเป็น `frontend/` และ `backend/`
+
+### 2.1 Frontend: หน้าเกมที่ผู้เล่นเห็น
+
+โฟลเดอร์ `frontend/` คือหน้าเว็บเกม Monkey Pop Pop
 
 ```text
 frontend/
-├── Dockerfile
 ├── index.html
+├── Dockerfile
 ├── background.png
 ├── monkey1.png
 ├── monkey2.png
 └── chieuk-thinking-289286.mp3
 ```
 
-### `frontend/index.html`
+ไฟล์หลักคือ `frontend/index.html` ภายในไฟล์นี้รวมทั้ง HTML, CSS และ JavaScript ไว้ด้วยกัน
 
-เป็นไฟล์หลักของหน้าเกม รวมทั้ง HTML, CSS และ JavaScript ไว้ในไฟล์เดียว
+หน้าที่ของ `index.html` คือ
 
-หน้าที่สำคัญ:
-
-- แสดงหน้า login ให้ผู้เล่นกรอกชื่อ
+- แสดงหน้าเริ่มเกมให้ผู้เล่นกรอกชื่อ
 - แสดงตัวจับเวลา 30 วินาที
-- แสดงคะแนนขณะเล่น
-- แสดง Top 5 leaderboard
-- เปลี่ยนรูปลิงเมื่อผู้เล่นกด
+- แสดงคะแนนระหว่างเล่น
+- แสดง Top 5 ranking
+- เปลี่ยนรูปลิงตอนกด
 - เล่นเสียงตอนกด
+- ดึง leaderboard จาก backend
 - ส่งคะแนนไป backend หลังจบเกม
-- ดึง leaderboard จาก backend มาแสดง
 
-ในไฟล์นี้มีการกำหนด `API_URL` ให้เลือก backend ตาม environment:
+ไฟล์ asset ที่ frontend ใช้ ได้แก่
 
-- ถ้ารันผ่าน Kubernetes NodePort จะเรียก backend ที่ port `30002`
-- ถ้ารัน local จะเรียก `http://localhost:3001`
+- `background.png` เป็นภาพพื้นหลังของเกม
+- `monkey1.png` เป็นภาพลิงสถานะปกติ
+- `monkey2.png` เป็นภาพลิงตอนถูกกด
+- `chieuk-thinking-289286.mp3` เป็นเสียงตอนผู้เล่นกด
 
-### `frontend/Dockerfile`
+ใน frontend มีการกำหนด URL ของ backend ไว้ด้วย ถ้ารันบน Kubernetes จะเรียก backend ผ่าน port `30002` แต่ถ้ารัน local จะเรียก `http://localhost:3001`
 
-ใช้ build frontend เป็น Docker image โดยใช้ `nginx:alpine`
+### 2.2 Backend: API สำหรับคะแนนและ leaderboard
 
-หน้าที่:
-
-- copy ไฟล์ทั้งหมดใน `frontend/` ไปไว้ที่ `/usr/share/nginx/html/`
-- expose port `80`
-- รัน nginx เพื่อ serve หน้าเว็บ
-
-### `frontend/background.png`
-
-เป็นรูปพื้นหลังของเกม
-
-### `frontend/monkey1.png`
-
-เป็นรูปลิงสถานะปกติ ก่อนถูกกด
-
-### `frontend/monkey2.png`
-
-เป็นรูปลิงสถานะตอนถูกกด ใช้สลับภาพเพื่อให้เกมมี animation ง่าย ๆ
-
-### `frontend/chieuk-thinking-289286.mp3`
-
-เป็นไฟล์เสียงที่เล่นตอนผู้เล่นกดลิง
-
----
-
-## โฟลเดอร์ `ansible/`
-
-โฟลเดอร์นี้ใช้เก็บ Ansible playbook สำหรับ deploy frontend และ backend เข้า Kubernetes
+โฟลเดอร์ `backend/` คือส่วน API ของเกม
 
 ```text
-ansible/
-├── backend/
-│   ├── deploy_backend.yml
-│   └── hosts.ini
-└── frontend/
-    ├── deploy_frontend.yml
-    └── hosts.ini
+backend/
+├── server.js
+├── package.json
+└── Dockerfile
 ```
 
-### `ansible/backend/hosts.ini`
+ไฟล์หลักคือ `backend/server.js` ทำหน้าที่เปิด Express server ที่ port `3001`
 
-กำหนด target host สำหรับ Ansible
+API สำคัญใน backend มี 3 endpoint
 
-```ini
-server ansible_host=localhost ansible_connection=local
-```
+| Method | Endpoint | หน้าที่ |
+|---|---|---|
+| `POST` | `/api/score` | รับคะแนนจาก frontend แล้วบันทึกลง Redis |
+| `GET` | `/api/leaderboard` | ดึง Top 5 leaderboard จาก Redis |
+| `GET` | `/metrics` | ส่ง metrics ให้ Prometheus ดึงไปเก็บ |
 
-หมายความว่า Ansible จะรันคำสั่งบนเครื่อง local หรือใน Jenkins container ที่กำลังทำงานอยู่
+backend ใช้ Redis เป็นฐานข้อมูล โดยเชื่อมต่อผ่านค่า `REDIS_URL`
 
-### `ansible/backend/deploy_backend.yml`
+ก่อนบันทึกคะแนน backend จะตรวจสอบ header `x-api-key` ว่าตรงกับค่า `API_KEY` หรือไม่ ค่าเหล่านี้จะถูกส่งมาจาก Kubernetes ConfigMap และ Secret
 
-เป็น playbook สำหรับ deploy backend และ Redis เข้า Kubernetes
+ไฟล์ `backend/package.json` ใช้กำหนด dependencies ของ backend เช่น
 
-หน้าที่หลัก:
-
-- สร้าง namespace `monkeypop`
-- สร้าง Redis PVC สำหรับเก็บข้อมูลถาวร
-- deploy Redis
-- สร้าง Redis Service
-- deploy backend จำนวน 2 replicas
-- ดึงค่า `REDIS_URL` จาก ConfigMap
-- ดึงค่า `API_KEY` จาก Secret
-- สร้าง Backend Service แบบ NodePort ที่ port `30002`
-- สั่ง rollout restart เพื่อให้ backend ใช้ image ล่าสุด
-
-### `ansible/frontend/hosts.ini`
-
-กำหนด target host สำหรับ deploy frontend แบบ local เช่นเดียวกับ backend
-
-### `ansible/frontend/deploy_frontend.yml`
-
-เป็น playbook สำหรับ deploy frontend เข้า Kubernetes
-
-หน้าที่หลัก:
-
-- สร้าง namespace `monkeypop`
-- deploy frontend จำนวน 2 replicas
-- ใช้ image `thamonwanfirst/monkeypop-frontend`
-- สร้าง Frontend Service แบบ NodePort ที่ port `30001`
-- สั่ง rollout restart เพื่อให้ frontend ใช้ image ล่าสุด
+- `express` สำหรับสร้าง API
+- `redis` สำหรับเชื่อมต่อ Redis
+- `cors` สำหรับให้ frontend เรียก backend ได้
+- `prom-client` สำหรับสร้าง metrics ให้ Prometheus
+- `uuid` สำหรับสร้าง id หากต้องใช้
 
 ---
 
-## โฟลเดอร์ `jenkins/`
+## 3. แปลง Source Code เป็น Docker Image
 
-โฟลเดอร์นี้เก็บ Jenkins Pipeline สำหรับทำ CI/CD
+เมื่อมี frontend และ backend แล้ว ขั้นต่อไปคือทำให้แต่ละส่วนกลายเป็น Docker image เพื่อให้รันใน container ได้
+
+### 3.1 Dockerfile ของ Backend
+
+ไฟล์ `backend/Dockerfile` ใช้ build backend image
+
+Flow การทำงานของไฟล์นี้คือ
+
+1. ใช้ base image `node:18-alpine`
+2. ตั้ง working directory เป็น `/app`
+3. copy `package.json`
+4. ติดตั้ง dependencies ด้วย `npm install`
+5. copy source code ทั้งหมด
+6. เปิด port `3001`
+7. สั่งรัน `npm start`
+
+สรุปคือ Dockerfile นี้ทำให้ backend กลายเป็น container ที่เปิด API ได้ที่ port `3001`
+
+### 3.2 Dockerfile ของ Frontend
+
+ไฟล์ `frontend/Dockerfile` ใช้ build frontend image
+
+Flow การทำงานของไฟล์นี้คือ
+
+1. ใช้ base image `nginx:alpine`
+2. copy ไฟล์ทั้งหมดใน `frontend/` ไปไว้ที่ `/usr/share/nginx/html/`
+3. เปิด port `80`
+4. รัน nginx เพื่อ serve หน้าเว็บ
+
+สรุปคือ Dockerfile นี้ทำให้ frontend กลายเป็นเว็บ static ที่เปิดผ่าน nginx
+
+### 3.3 Docker Compose สำหรับทดสอบ Local
+
+ไฟล์ `Docker-compose.yml` ใช้รันระบบหลาย container พร้อมกันบนเครื่อง local
+
+service ที่อยู่ในไฟล์นี้ ได้แก่
+
+- `frontend` รันหน้าเว็บเกม
+- `backend` รัน API
+- `redis` เก็บ leaderboard
+- `prometheus` เก็บ metrics
+- `grafana` แสดง dashboard
+- `node-exporter` ส่ง metrics ของเครื่อง
+- `jenkins` รันระบบ CI/CD
+- `k8s-proxy` ช่วย proxy port จาก Kubernetes service
+
+ถ้าต้องการทดสอบระบบแบบ local สามารถใช้ไฟล์นี้เพื่อรันทุกอย่างพร้อมกันได้
+
+---
+
+## 4. Jenkins เริ่มกระบวนการ CI/CD
+
+เมื่อ developer push code ไป GitHub Jenkins จะเริ่ม pipeline เพื่อ build และ deploy ระบบ
+
+โฟลเดอร์ที่เกี่ยวข้องคือ
 
 ```text
 jenkins/
@@ -274,42 +177,182 @@ jenkins/
     └── Jenkinsfile_frountend
 ```
 
-### `jenkins/build/Jenkinsfile_backend`
+### 4.1 Jenkins Image
 
-เป็น pipeline สำหรับ backend
+ไฟล์ `Dockerfile.jenkins` ใช้สร้าง Jenkins image ที่ติดตั้งเครื่องมือเพิ่มเติมไว้แล้ว เช่น
 
-ลำดับการทำงาน:
+- Docker CLI
+- Terraform
+- kubectl
+- Ansible
+- Node.js
 
-1. Checkout code จาก GitHub
-2. เข้าโฟลเดอร์ `backend` แล้วรัน `npm install`
-3. รันทดสอบแบบจำลอง
-4. build Docker image ของ backend
-5. push image ไป Docker Hub
-6. รัน Terraform เพื่อสร้างหรือจัดการ namespace, ConfigMap และ Secret
-7. รัน Ansible เพื่อ deploy backend และ Redis
+เหตุผลที่ต้องติดตั้งเครื่องมือเหล่านี้ เพราะ Jenkins ต้องใช้ในการ build image, push image, สร้าง infrastructure และ deploy เข้า Kubernetes
+
+### 4.2 Pipeline ของ Backend
+
+ไฟล์ `jenkins/build/Jenkinsfile_backend` คือ pipeline สำหรับ backend
+
+Flow ของ backend pipeline คือ
+
+1. `Checkout` ดึง source code จาก GitHub
+2. `Build` เข้าโฟลเดอร์ `backend` แล้วรัน `npm install`
+3. `Test` รันทดสอบแบบจำลอง เช่น เช็ก Node.js version
+4. `Docker Build` build image จาก `backend/Dockerfile`
+5. `Push Hub` push image ไป Docker Hub ชื่อ `thamonwanfirst/monkeypop-backend`
+6. `Deploy` รัน Terraform เพื่อสร้าง resource พื้นฐาน
+7. รัน Ansible เพื่อ deploy Redis และ backend
 8. deploy monitoring stack เช่น Prometheus, Grafana และ kube-state-metrics
-9. ลบ Docker image ในเครื่อง Jenkins หลังจบ pipeline
+9. หลังจบ pipeline ลบ image ในเครื่อง Jenkins และ logout Docker
 
-### `jenkins/build/Jenkinsfile_frountend`
+### 4.3 Pipeline ของ Frontend
 
-เป็น pipeline สำหรับ frontend
+ไฟล์ `jenkins/build/Jenkinsfile_frountend` คือ pipeline สำหรับ frontend
 
-ลำดับการทำงาน:
+Flow ของ frontend pipeline คือ
 
-1. Checkout code จาก GitHub
-2. ตรวจสอบไฟล์ frontend เช่น `index.html`
-3. build Docker image ของ frontend
-4. push image ไป Docker Hub
-5. รัน Ansible เพื่อ deploy frontend เข้า Kubernetes
-6. ลบ Docker image ในเครื่อง Jenkins หลังจบ pipeline
+1. `Checkout` ดึง source code จาก GitHub
+2. `Build` ตรวจสอบไฟล์ frontend
+3. `Test` เช็กว่า `index.html` มีอยู่จริง
+4. `Docker Build` build image จาก `frontend/Dockerfile`
+5. `Push Hub` push image ไป Docker Hub ชื่อ `thamonwanfirst/monkeypop-frontend`
+6. `Deploy` รัน Ansible เพื่อ deploy frontend เข้า Kubernetes
+7. หลังจบ pipeline ลบ image ในเครื่อง Jenkins และ logout Docker
 
-หมายเหตุ: ชื่อไฟล์สะกดเป็น `frountend` ซึ่งน่าจะตั้งใจหมายถึง `frontend`
+หมายเหตุ: ชื่อไฟล์ `Jenkinsfile_frountend` สะกดว่า `frountend` แต่ความหมายคือ frontend
 
 ---
 
-## โฟลเดอร์ `k8s/`
+## 5. Terraform เตรียม Resource พื้นฐานใน Kubernetes
 
-โฟลเดอร์นี้เก็บ Kubernetes manifest สำหรับสร้าง resource ต่าง ๆ ใน cluster
+ก่อน deploy backend ต้องมี resource พื้นฐานใน Kubernetes ก่อน เช่น namespace, ConfigMap และ Secret
+
+โฟลเดอร์ที่เกี่ยวข้องคือ
+
+```text
+Terraform/
+├── main.tf
+├── variables.tf
+├── README.md
+├── Makefile
+├── setup.ps1
+├── setup.sh
+├── terraform.bat
+└── terraform.sh
+```
+
+### 5.1 `Terraform/main.tf`
+
+ไฟล์นี้เป็นไฟล์หลักของ Terraform
+
+หน้าที่คือ
+
+- กำหนด Kubernetes provider
+- ใช้ kubeconfig ที่ `/var/jenkins_home/.kube/config`
+- สร้าง namespace `monkeypop`
+- สร้าง ConfigMap `backend-config`
+- สร้าง Secret `backend-secret`
+
+ConfigMap ใช้เก็บค่า
+
+```text
+REDIS_URL=redis://redis:6379
+```
+
+Secret ใช้เก็บค่า
+
+```text
+API_KEY=monkey-secret-key
+```
+
+ค่าเหล่านี้ backend จะนำไปใช้ตอนรันใน Kubernetes
+
+### 5.2 `Terraform/variables.tf`
+
+ไฟล์นี้กำหนดตัวแปรของ Terraform เช่น
+
+- `namespace_name`
+- `redis_url`
+- `api_key`
+
+ถึงแม้ตอนนี้ใน `main.tf` จะกำหนดค่าหลายอย่างไว้ตรง ๆ แต่ไฟล์ variables ก็มีไว้เพื่อรองรับการปรับค่าในอนาคต
+
+### 5.3 ไฟล์ช่วยรัน Terraform
+
+ไฟล์อื่น ๆ ในโฟลเดอร์ Terraform ใช้ช่วยติดตั้งหรือรัน Terraform
+
+- `Terraform/README.md` อธิบายวิธีใช้ Terraform
+- `Terraform/Makefile` รวมคำสั่งลัด เช่น `make init`, `make plan`, `make apply`
+- `Terraform/setup.ps1` ติดตั้ง Terraform บน Windows
+- `Terraform/setup.sh` ติดตั้ง Terraform บน Linux/macOS
+- `Terraform/terraform.bat` ตัวช่วยรัน Terraform บน Windows CMD
+- `Terraform/terraform.sh` ตัวช่วยรัน Terraform บน Linux/macOS
+
+---
+
+## 6. Ansible Deploy แอปเข้า Kubernetes
+
+หลังจาก Terraform เตรียม resource พื้นฐานแล้ว Jenkins จะเรียก Ansible เพื่อ deploy application
+
+โฟลเดอร์ที่เกี่ยวข้องคือ
+
+```text
+ansible/
+├── backend/
+│   ├── hosts.ini
+│   └── deploy_backend.yml
+└── frontend/
+    ├── hosts.ini
+    └── deploy_frontend.yml
+```
+
+### 6.1 Ansible Hosts
+
+ไฟล์ `ansible/backend/hosts.ini` และ `ansible/frontend/hosts.ini` มีเนื้อหาเหมือนกัน คือ
+
+```ini
+server ansible_host=localhost ansible_connection=local
+```
+
+หมายความว่า Ansible จะรันคำสั่งบนเครื่อง local หรือใน Jenkins container ที่ pipeline กำลังทำงาน
+
+### 6.2 Deploy Backend และ Redis
+
+ไฟล์ `ansible/backend/deploy_backend.yml` ใช้ deploy backend และ Redis
+
+Flow ของ playbook นี้คือ
+
+1. สร้าง namespace `monkeypop`
+2. สร้าง Redis PVC ชื่อ `redis-pvc`
+3. deploy Redis
+4. สร้าง Redis Service
+5. deploy backend จำนวน 2 replicas
+6. backend ดึง `REDIS_URL` จาก ConfigMap
+7. backend ดึง `API_KEY` จาก Secret
+8. สร้าง Backend Service แบบ NodePort ที่ port `30002`
+9. สั่ง rollout restart เพื่อให้ backend ใช้ image ล่าสุด
+
+หมายเหตุ: namespace ถูกสร้างทั้งใน Terraform และ Ansible เพราะ Ansible ต้องการกันพลาด ถ้า namespace มีอยู่แล้วคำสั่งนี้จะไม่ทำให้ระบบพัง แต่ในเชิงออกแบบ Terraform ควรเป็นผู้ดูแล namespace หลัก
+
+### 6.3 Deploy Frontend
+
+ไฟล์ `ansible/frontend/deploy_frontend.yml` ใช้ deploy frontend
+
+Flow ของ playbook นี้คือ
+
+1. สร้าง namespace `monkeypop`
+2. deploy frontend จำนวน 2 replicas
+3. ใช้ image `thamonwanfirst/monkeypop-frontend`
+4. สร้าง Frontend Service แบบ NodePort ที่ port `30001`
+5. สั่ง rollout restart เพื่อให้ frontend ใช้ image ล่าสุด
+
+---
+
+## 7. Kubernetes รันระบบจริง
+
+หลังจาก deploy เสร็จ ระบบจะรันอยู่ใน Kubernetes namespace `monkeypop`
+
+ไฟล์ manifest ที่เกี่ยวข้องอยู่ในโฟลเดอร์ `k8s/`
 
 ```text
 k8s/
@@ -324,312 +367,259 @@ k8s/
 └── kube-state-metrics.yaml
 ```
 
-### `k8s/namespace.yaml`
+### 7.1 Resource พื้นฐาน
 
-สร้าง namespace ชื่อ `monkeypop`
+ไฟล์ `k8s/namespace.yaml` ใช้สร้าง namespace `monkeypop`
 
-namespace ใช้แยก resource ของโปรเจกต์นี้ออกจากระบบอื่นใน Kubernetes
+ไฟล์ `k8s/configmap.yaml` ใช้สร้าง ConfigMap ชื่อ `backend-config` เพื่อเก็บ `REDIS_URL`
 
-### `k8s/configmap.yaml`
+ไฟล์ `k8s/secret.yaml` ใช้สร้าง Secret ชื่อ `backend-secret` เพื่อเก็บ `API_KEY`
 
-สร้าง ConfigMap ชื่อ `backend-config`
+ไฟล์ `k8s/pvc.yaml` ใช้สร้าง PersistentVolumeClaim ชื่อ `redis-pvc` สำหรับให้ Redis เก็บข้อมูลถาวร
 
-เก็บค่า:
+### 7.2 Deployment ของแอป
 
-```yaml
-REDIS_URL: "redis://redis:6379"
-```
+ไฟล์ `k8s/deployment.yaml` รวม Deployment ของ 3 ส่วนหลัก
 
-backend ใช้ค่านี้เพื่อเชื่อมต่อ Redis
+- `redis` ใช้ image `redis:alpine`
+- `backend` ใช้ image `thamonwanfirst/monkeypop-backend:latest`
+- `frontend` ใช้ image `thamonwanfirst/monkeypop-frontend:latest`
 
-### `k8s/secret.yaml`
+backend และ frontend ถูกตั้งให้มี 2 replicas เพื่อให้มี pod มากกว่า 1 ตัว
 
-สร้าง Secret ชื่อ `backend-secret`
+### 7.3 Service สำหรับเข้าถึงระบบ
 
-เก็บค่า API key:
+ไฟล์ `k8s/service.yaml` รวม Service ของระบบ
 
-```yaml
-API_KEY: bW9ua2V5LXNlY3JldC1rZXk=
-```
+- Redis Service เปิด port `6379` ให้ backend ติดต่อ Redis ภายใน cluster
+- Backend Service เปิด NodePort `30002`
+- Frontend Service เปิด NodePort `30001`
 
-ค่านี้คือ base64 ของ `monkey-secret-key`
-
-### `k8s/pvc.yaml`
-
-สร้าง PersistentVolumeClaim ชื่อ `redis-pvc`
-
-ใช้จอง storage ขนาด `1Gi` ให้ Redis เพื่อให้ข้อมูล leaderboard ไม่หายง่ายเมื่อ container restart
-
-### `k8s/deployment.yaml`
-
-รวม Deployment หลักของระบบ ได้แก่
-
-- `redis`
-- `backend`
-- `frontend`
-
-รายละเอียด:
-
-- Redis มี 1 replica
-- Backend มี 2 replicas และใช้ image `thamonwanfirst/monkeypop-backend:latest`
-- Frontend มี 2 replicas และใช้ image `thamonwanfirst/monkeypop-frontend:latest`
-
-### `k8s/service.yaml`
-
-รวม Service สำหรับให้แต่ละ component ติดต่อกัน
-
-- `redis` ใช้ ClusterIP ภายใน cluster port `6379`
-- `backend` ใช้ NodePort port `30002`
-- `frontend` ใช้ NodePort port `30001`
-
-### `k8s/monitoring.yaml`
-
-สร้าง ConfigMap สำหรับระบบ monitoring
-
-ประกอบด้วย:
-
-- Prometheus config
-- Grafana datasource
-- Grafana dashboard provider
-- Grafana dashboard JSON สำหรับ MonkeyPop
-
-### `k8s/monitoring-deployment.yaml`
-
-deploy Prometheus และ Grafana เข้า Kubernetes
-
-ประกอบด้วย:
-
-- Prometheus Deployment
-- Prometheus Service NodePort `30090`
-- Grafana Deployment
-- Grafana Service NodePort `30000`
-
-### `k8s/kube-state-metrics.yaml`
-
-deploy kube-state-metrics เพื่อให้ Prometheus ดึงข้อมูลสถานะของ Kubernetes ได้ เช่น
-
-- pod running หรือ pending
-- pod restart count
-- deployment status
-- service status
-
-ไฟล์นี้มีทั้ง ServiceAccount, ClusterRole, ClusterRoleBinding, Deployment และ Service
+ผู้เล่นจะเข้าเกมผ่าน frontend ที่ port `30001` ส่วน frontend จะเรียก backend ที่ port `30002`
 
 ---
 
-## โฟลเดอร์ `prometheus/`
+## 8. Flow ตอนผู้เล่นใช้งานเกม
 
-โฟลเดอร์นี้เก็บ configuration ของ Prometheus และ alert rules
+เมื่อระบบรันบน Kubernetes แล้ว flow ตอนใช้งานจริงจะเป็นแบบนี้
+
+1. ผู้เล่นเปิดหน้าเว็บ frontend ผ่าน NodePort `30001`
+2. Kubernetes ส่ง request ไปยัง pod ของ frontend
+3. nginx ใน frontend container serve ไฟล์ `index.html`
+4. ผู้เล่นกรอกชื่อและกดเริ่มเกม
+5. JavaScript ใน `index.html` เริ่มจับเวลา 30 วินาที
+6. ผู้เล่นกดรูปลิงเพื่อเพิ่มคะแนน
+7. เมื่อหมดเวลา frontend ส่ง `POST /api/score` ไป backend port `30002`
+8. backend ตรวจสอบ `x-api-key`
+9. backend บันทึกคะแนนลง Redis ด้วย sorted set
+10. frontend เรียก `GET /api/leaderboard`
+11. backend ดึง Top 5 จาก Redis แล้วส่งกลับไปแสดงบนหน้าเว็บ
+
+Flow การเล่นเกมแบบย่อ
+
+```text
+Browser
+  -> Frontend Service :30001
+  -> Frontend Pod
+  -> Backend Service :30002
+  -> Backend Pod
+  -> Redis Service :6379
+  -> Redis Pod
+```
+
+---
+
+## 9. Backend ส่ง Metrics ให้ Prometheus
+
+นอกจากรับคะแนนแล้ว backend ยังสร้าง metrics สำหรับ monitoring ด้วย
+
+ใน `backend/server.js` มีการใช้ `prom-client` เพื่อสร้าง metric ชื่อ
+
+```text
+monkey_pops_total
+```
+
+metric นี้ใช้เก็บจำนวนการกดทั้งหมด โดยแยกตาม username
+
+backend เปิด endpoint
+
+```text
+/metrics
+```
+
+Prometheus จะเรียก endpoint นี้เป็นระยะ ๆ เพื่อเก็บ metrics
+
+---
+
+## 10. Prometheus เก็บ Metrics
+
+Prometheus มีทั้ง config สำหรับ local และ config สำหรับ Kubernetes
+
+ไฟล์ที่เกี่ยวข้องคือ
 
 ```text
 prometheus/
-├── alert_rules.yml
 ├── prometheus.yml
+├── alert_rules.yml
 └── rbac.yaml
 ```
 
-### `prometheus/prometheus.yml`
+และใน Kubernetes มีไฟล์
 
-เป็น config หลักของ Prometheus
+```text
+k8s/monitoring.yaml
+k8s/monitoring-deployment.yaml
+k8s/kube-state-metrics.yaml
+```
 
-หน้าที่:
+### 10.1 `prometheus/prometheus.yml`
 
-- กำหนด scrape interval
-- โหลด alert rule จาก `alert_rules.yml`
-- scrape metrics จาก Prometheus เอง
-- scrape metrics จาก backend
-- scrape metrics จาก node-exporter
-- scrape metrics จาก kube-state-metrics
+ไฟล์นี้กำหนดว่า Prometheus ต้องไปดึง metrics จากที่ไหน เช่น
 
-### `prometheus/alert_rules.yml`
+- Prometheus เอง
+- backend
+- node-exporter
+- kube-state-metrics
 
-เป็นไฟล์กำหนด alert rule
+### 10.2 `prometheus/alert_rules.yml`
 
-alert ที่มี:
+ไฟล์นี้กำหนด alert rule เช่น
 
 - `BackendDown` แจ้งเตือนเมื่อ backend ล่ม
 - `HighClickRate` แจ้งเตือนเมื่อจำนวนการกดสูงผิดปกติ
-- `RedisDown` แจ้งเตือนเมื่อ Redis เข้าถึงไม่ได้
+- `RedisDown` แจ้งเตือนเมื่อ Redis ใช้งานไม่ได้
 
-### `prometheus/rbac.yaml`
+### 10.3 `prometheus/rbac.yaml`
 
-สร้างสิทธิ์ให้ Prometheus อ่านข้อมูลใน Kubernetes ได้
+ไฟล์นี้ให้สิทธิ์ Prometheus อ่าน resource ใน Kubernetes เช่น pod, service และ endpoint
 
-ประกอบด้วย:
+ประกอบด้วย
 
 - ServiceAccount
 - ClusterRole
 - ClusterRoleBinding
 
-Prometheus ต้องมีสิทธิ์เหล่านี้เพื่อดู pods, services, endpoints และ metrics ต่าง ๆ ใน cluster
+### 10.4 Monitoring Manifest ใน `k8s/`
+
+ไฟล์ `k8s/monitoring.yaml` ใช้สร้าง ConfigMap สำหรับ Prometheus และ Grafana
+
+ไฟล์ `k8s/monitoring-deployment.yaml` ใช้ deploy Prometheus และ Grafana
+
+- Prometheus เปิด NodePort `30090`
+- Grafana เปิด NodePort `30000`
+
+ไฟล์ `k8s/kube-state-metrics.yaml` ใช้ deploy kube-state-metrics เพื่อให้ Prometheus เห็นสถานะของ Kubernetes เช่น pod running, pending และ restart count
 
 ---
 
-## โฟลเดอร์ `grafana/`
+## 11. Grafana แสดงผล Dashboard
 
-โฟลเดอร์นี้เก็บการตั้งค่า Grafana และ dashboard
+Grafana ใช้ข้อมูลจาก Prometheus เพื่อแสดง dashboard
+
+โฟลเดอร์ที่เกี่ยวข้องคือ
 
 ```text
 grafana/
 ├── dashboards/
 │   └── monkeypop-dashboard.json
 └── provisioning/
-    ├── dashboards/
-    │   └── dashboards.yaml
-    └── datasources/
-        └── datasources.yaml
+    ├── datasources/
+    │   └── datasources.yaml
+    └── dashboards/
+        └── dashboards.yaml
 ```
 
-### `grafana/provisioning/datasources/datasources.yaml`
+### 11.1 Datasource
 
-ตั้งค่า datasource ให้ Grafana เชื่อมกับ Prometheus
+ไฟล์ `grafana/provisioning/datasources/datasources.yaml` กำหนดให้ Grafana ใช้ Prometheus เป็น datasource
 
-กำหนดให้ Prometheus เป็น datasource หลักที่ URL:
+URL ที่ใช้คือ
 
 ```text
 http://prometheus:9090
 ```
 
-### `grafana/provisioning/dashboards/dashboards.yaml`
+### 11.2 Dashboard Provider
 
-บอก Grafana ให้โหลด dashboard จาก path:
+ไฟล์ `grafana/provisioning/dashboards/dashboards.yaml` บอก Grafana ให้โหลด dashboard จาก path
 
 ```text
 /var/lib/grafana/dashboards
 ```
 
-ทำให้ Grafana สามารถโหลด dashboard อัตโนมัติเมื่อ container เริ่มทำงาน
+### 11.3 Dashboard JSON
 
-### `grafana/dashboards/monkeypop-dashboard.json`
+ไฟล์ `grafana/dashboards/monkeypop-dashboard.json` คือ dashboard ของโปรเจกต์
 
-เป็นไฟล์ dashboard ของ Grafana สำหรับโปรเจกต์ MonkeyPop
-
-panel หลักใน dashboard:
+panel หลัก ได้แก่
 
 - `Total Monkey Pops` แสดงจำนวนการกดทั้งหมด
 - `Pod Restarts` แสดงจำนวนครั้งที่ pod restart
-- `Pods Status` แสดงสถานะ pod เช่น Running หรือ Pending
+- `Pods Status` แสดงสถานะของ pod
 - `Memory by Pod` แสดง memory usage ของ backend pod
 
----
-
-## โฟลเดอร์ `Terraform/`
-
-โฟลเดอร์นี้ใช้ Terraform จัดการ resource พื้นฐานใน Kubernetes
+Flow ของ monitoring คือ
 
 ```text
-Terraform/
-├── main.tf
-├── variables.tf
-├── README.md
-├── Makefile
-├── setup.ps1
-├── setup.sh
-├── terraform.bat
-└── terraform.sh
-```
-
-### `Terraform/main.tf`
-
-เป็นไฟล์หลักของ Terraform
-
-หน้าที่:
-
-- กำหนด Kubernetes provider
-- ใช้ kubeconfig ที่ `/var/jenkins_home/.kube/config`
-- สร้าง namespace `monkeypop`
-- สร้าง ConfigMap `backend-config`
-- สร้าง Secret `backend-secret`
-
-### `Terraform/variables.tf`
-
-กำหนดตัวแปรของ Terraform
-
-ตัวแปรหลัก:
-
-- `namespace_name` ค่า default คือ `monkeypop`
-- `redis_url` ค่า default คือ `redis://redis:6379`
-- `api_key` ค่า default คือ `monkey-secret-key`
-
-### `Terraform/README.md`
-
-เอกสารอธิบายวิธีใช้ Terraform ในโปรเจกต์ เช่น
-
-- `terraform init`
-- `terraform plan`
-- `terraform apply -auto-approve`
-- `terraform destroy`
-
-### `Terraform/Makefile`
-
-รวมคำสั่งลัดสำหรับจัดการ Terraform เช่น
-
-- `make init`
-- `make validate`
-- `make fmt`
-- `make plan`
-- `make apply`
-- `make destroy`
-- `make clean`
-
-### `Terraform/setup.ps1`
-
-script สำหรับติดตั้ง Terraform บน Windows ผ่าน PowerShell
-
-### `Terraform/setup.sh`
-
-script สำหรับติดตั้ง Terraform บน Linux หรือ macOS
-
-### `Terraform/terraform.bat`
-
-ตัวช่วยรัน Terraform บน Windows CMD
-
-ตัวอย่าง:
-
-```bat
-terraform.bat init
-terraform.bat plan
-terraform.bat apply
-```
-
-### `Terraform/terraform.sh`
-
-ตัวช่วยรัน Terraform บน Linux หรือ macOS
-
-ตัวอย่าง:
-
-```bash
-./terraform.sh init
-./terraform.sh plan
-./terraform.sh apply
+Backend / Kubernetes
+  -> Prometheus
+  -> Grafana
+  -> Dashboard
 ```
 
 ---
 
-## สรุปหน้าที่แต่ละโฟลเดอร์แบบสั้น
+## 12. ไฟล์เอกสารและไฟล์ช่วยจัดการโปรเจกต์
 
-| โฟลเดอร์ | หน้าที่ |
-|---|---|
-| `backend/` | API สำหรับรับคะแนน เก็บ leaderboard และส่ง metrics |
-| `frontend/` | หน้าเว็บเกม Monkey Pop Pop |
-| `ansible/` | playbook สำหรับ deploy frontend/backend เข้า Kubernetes |
-| `jenkins/` | pipeline สำหรับ build, push image และ deploy อัตโนมัติ |
-| `k8s/` | manifest สำหรับสร้าง resource บน Kubernetes |
-| `prometheus/` | config สำหรับเก็บ metrics และ alert |
-| `grafana/` | config datasource และ dashboard สำหรับแสดงผล monitoring |
-| `Terraform/` | จัดการ namespace, ConfigMap และ Secret ด้วย Infrastructure as Code |
+### `README.md`
+
+เป็นเอกสารหลักของโปรเจกต์ ใช้อธิบายภาพรวม วิธีรัน วิธี deploy และรายละเอียดของระบบ
+
+### `readawrite.md`
+
+เป็นเอกสารฉบับนี้ ใช้อธิบายโปรเจกต์แบบไล่ตาม flow การทำงาน
+
+### `.gitignore`
+
+ใช้บอก Git ว่าไม่ต้อง track ไฟล์หรือโฟลเดอร์บางอย่าง เช่น
+
+- `node_modules/`
+- `dist/`
+- `*.log`
+- `.env`
+- `grafana-storage/`
+- `jenkins-data/`
 
 ---
 
-## สรุปการไหลของระบบ
+## 13. สรุป Flow ทั้งหมดแบบสั้น
 
-1. ผู้เล่นเปิด frontend ที่ port `30001`
-2. frontend แสดงหน้าเกมและรับชื่อผู้เล่น
-3. ผู้เล่นกดลิงเพื่อสะสมคะแนน
-4. เมื่อหมดเวลา frontend ส่งคะแนนไป backend ที่ port `30002`
-5. backend ตรวจสอบ API key
-6. backend บันทึกคะแนนลง Redis
-7. backend เปิด metrics ให้ Prometheus ดึงข้อมูล
-8. Prometheus เก็บ metrics ของ backend และ Kubernetes
-9. Grafana ดึงข้อมูลจาก Prometheus ไปแสดง dashboard
-10. Jenkins ช่วย build และ deploy ระบบทั้งหมดให้อัตโนมัติ
+1. Developer เขียนโค้ดใน `frontend/` และ `backend/`
+2. Dockerfile แปลง frontend/backend เป็น Docker image
+3. Jenkins pipeline เริ่มทำงานเมื่อมีการ push code
+4. Jenkins build และ push image ไป Docker Hub
+5. Terraform สร้าง namespace, ConfigMap และ Secret
+6. Ansible deploy Redis, backend และ frontend เข้า Kubernetes
+7. Kubernetes รัน frontend, backend และ Redis เป็น pod
+8. ผู้เล่นเข้าเกมผ่าน frontend port `30001`
+9. frontend ส่งคะแนนไป backend port `30002`
+10. backend บันทึกคะแนนลง Redis
+11. backend เปิด `/metrics` ให้ Prometheus ดึงข้อมูล
+12. Prometheus เก็บ metrics จาก backend และ Kubernetes
+13. Grafana แสดง dashboard จากข้อมูลของ Prometheus
+
+---
+
+## 14. สรุปหน้าที่ของแต่ละโฟลเดอร์
+
+| โฟลเดอร์ | อยู่ใน Flow ช่วงไหน | หน้าที่ |
+|---|---|---|
+| `frontend/` | Runtime | หน้าเว็บเกมที่ผู้เล่นใช้งาน |
+| `backend/` | Runtime | API รับคะแนน ดึง leaderboard และส่ง metrics |
+| `Terraform/` | ก่อน deploy | สร้าง resource พื้นฐาน เช่น namespace, ConfigMap, Secret |
+| `ansible/` | ตอน deploy | deploy Redis, backend และ frontend เข้า Kubernetes |
+| `jenkins/` | CI/CD | build, test, push image และสั่ง deploy |
+| `k8s/` | Kubernetes runtime | manifest สำหรับ resource บน Kubernetes |
+| `prometheus/` | Monitoring | config การเก็บ metrics และ alert |
+| `grafana/` | Monitoring | datasource และ dashboard สำหรับแสดงผล |
+
