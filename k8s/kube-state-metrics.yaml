@@ -85,13 +85,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: kube-state-metrics-nodeport
+  name: kube-state-metrics
   namespace: monkeypop
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
   - port: 8080
     targetPort: 8080
-    nodePort: 30081
   selector:
     app: kube-state-metrics

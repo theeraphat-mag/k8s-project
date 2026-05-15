@@ -173,14 +173,22 @@ kubectl get svc -n monkeypop
 ## 📊 Monitoring
 
 ### ระบบที่ใช้
-- **Prometheus:** เก็บ metrics จาก `/metrics` endpoint ของ backend
-- **Grafana:** แสดงผล Dashboard ที่สวยงาม
+- **Prometheus:** เก็บ metrics จาก `/metrics` endpoint ของ backend และข้อมูลระบบจาก K8s
+- **Grafana:** แสดงผล Dashboard (Port 30000)
+- **kube-state-metrics:** ตัวช่วยดึงข้อมูลสถานะของทรัพยากรต่างๆ ใน Kubernetes
 
 ### Panels ใน Dashboard
-  - **Total Monkey Pops:** จำนวนการกดทั้งหมด
-  - **Pod Restarts:** ตรวจสอบความเสถียรของ Pod ใน K8s
-  - **Pods Status:** ตรวจสอบสถานะ Pod (Running/Pending/Failed)
-  - **Memory by Pod:** การใช้หน่วยความจำของแต่ละอินสแตนซ์
+  - **Total Monkey Pops:** จำนวนการกดทั้งหมด (ดึงจากแอป)
+  - **Pod Restarts:** ตรวจสอบความเสถียรของ Pod (ดึงจาก kube-state-metrics)
+  - **Pods Status:** ตรวจสอบสถานะ Pod เช่น Running/Pending (ดึงจาก kube-state-metrics)
+  - **Memory by Pod:** การใช้หน่วยความจำ (RSS) ของแต่ละ Pod (ดึงจากแอป)
+
+### การเข้าใช้งาน
+```bash
+# เข้าผ่าน NodePort (หากใช้ Minikube ให้ใช้ minikube ip)
+# Grafana: http://<NODE_IP>:30000
+# Prometheus: http://<NODE_IP>:30090
+```
 
 ---
 
