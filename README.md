@@ -117,6 +117,13 @@ terraform init && terraform apply -auto-approve
 cd ../ansible
 ansible-playbook -i backend/hosts.ini backend/deploy_backend.yml
 ansible-playbook -i frontend/hosts.ini frontend/deploy_frontend.yml
+
+# Deploy Monitoring stack
+cd ..
+kubectl apply -f prometheus/rbac.yaml
+kubectl apply -f k8s/kube-state-metrics.yaml
+kubectl apply -f k8s/monitoring.yaml
+kubectl apply -f k8s/monitoring-deployment.yaml
 ```
 
 ---
@@ -124,7 +131,7 @@ ansible-playbook -i frontend/hosts.ini frontend/deploy_frontend.yml
 ## 🔄 CI/CD Pipeline (Jenkins)
 
 ระบบแบ่ง Pipeline เป็น 2 ส่วนหลัก:
-1. **Backend Pipeline:** จัดการ Build Image และเตรียม Infrastructure (Terraform)
+1. **Backend Pipeline:** จัดการ Build Image, เตรียม Infrastructure (Terraform), Deploy Backend + Redis และ Monitoring stack
 2. **Frontend Pipeline:** จัดการ Build Image และ Deploy แอปพลิเคชัน (Ansible)
 
 | Stage | คำอธิบาย |
@@ -132,8 +139,9 @@ ansible-playbook -i frontend/hosts.ini frontend/deploy_frontend.yml
 | **Checkout** | ดึงโค้ดล่าสุดจาก GitHub |
 | **Docker Build** | สร้าง Docker image จาก Dockerfile ใน backend/frontend |
 | **Push to Hub** | อัปโหลด image ขึ้น Docker Hub |
-| **Infrastructure** | (เฉพาะ Backend) รัน Terraform เพื่อสร้าง Namespace และ Resources |
-| **Deploy** | รัน Ansible เพื่อ Deploy และ Rollout Restart Pods ใน K8s |
+| **Infrastructure** | (เฉพาะ Backend) รัน Terraform เพื่อสร้าง/จัดการ Namespace, ConfigMap และ Secret |
+| **Deploy** | รัน Ansible เพื่อ Deploy Redis, Backend/Frontend และ Rollout Restart Pods ใน K8s |
+| **Monitoring** | (เฉพาะ Backend) Deploy Prometheus, Grafana และ kube-state-metrics |
 
 ---
 
@@ -148,6 +156,7 @@ ansible-playbook -i frontend/hosts.ini frontend/deploy_frontend.yml
 ### Ansible — Configure Environment
 ใช้ Ansible ในการ:
 - จัดการการ Deploy Kubernetes manifests
+- สร้าง Redis PVC, Redis Deployment และ Redis Service สำหรับ backend
 - ทำ **Rollout Restart** เพื่อให้อัปเดต image ใหม่โดยไม่มี downtime
 
 ---
