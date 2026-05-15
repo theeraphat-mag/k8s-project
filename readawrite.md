@@ -327,11 +327,12 @@ server ansible_host=localhost ansible_connection=local
 
 Flow ของ playbook นี้คือ
 
-1. deploy backend จำนวน 2 replicas
-2. backend ดึง `REDIS_URL` จาก ConfigMap ที่ Terraform สร้างไว้
-3. backend ดึง `API_KEY` จาก Secret ที่ Terraform สร้างไว้
-4. สร้าง Backend Service แบบ NodePort ที่ port `30002`
-5. สั่ง rollout restart เพื่อให้ backend ใช้ image ล่าสุด
+1. apply `k8s/backend-deployment.yaml`
+2. apply `k8s/backend-service.yaml`
+3. backend ดึง `REDIS_URL` จาก ConfigMap ที่ Terraform สร้างไว้
+4. backend ดึง `API_KEY` จาก Secret ที่ Terraform สร้างไว้
+5. ใช้ `kubectl set image` เปลี่ยน backend image เป็น version ที่ Jenkins build มา
+6. สั่ง rollout restart เพื่อให้ backend ใช้ image ล่าสุด
 
 ส่วน namespace, ConfigMap, Secret, Redis PVC, Redis Deployment และ Redis Service ถูกย้ายไปให้ Terraform ดูแลทั้งหมด
 
@@ -341,9 +342,9 @@ Flow ของ playbook นี้คือ
 
 Flow ของ playbook นี้คือ
 
-1. deploy frontend จำนวน 2 replicas
-2. ใช้ image `thamonwanfirst/monkeypop-frontend`
-3. สร้าง Frontend Service แบบ NodePort ที่ port `30001`
+1. apply `k8s/frontend-deployment.yaml`
+2. apply `k8s/frontend-service.yaml`
+3. ใช้ `kubectl set image` เปลี่ยน frontend image เป็น version ที่ Jenkins build มา
 4. สั่ง rollout restart เพื่อให้ frontend ใช้ image ล่าสุด
 
 ---
@@ -362,6 +363,10 @@ k8s/
 ├── pvc.yaml
 ├── deployment.yaml
 ├── service.yaml
+├── backend-deployment.yaml
+├── backend-service.yaml
+├── frontend-deployment.yaml
+├── frontend-service.yaml
 ├── monitoring.yaml
 ├── monitoring-deployment.yaml
 └── kube-state-metrics.yaml
@@ -369,33 +374,44 @@ k8s/
 
 ### 7.1 Resource พื้นฐาน
 
-ไฟล์ `k8s/namespace.yaml` ใช้สร้าง namespace `monkeypop`
+ไฟล์ `k8s/namespace.yaml` เป็น manifest อ้างอิงสำหรับ namespace `monkeypop`
 
-ไฟล์ `k8s/configmap.yaml` ใช้สร้าง ConfigMap ชื่อ `backend-config` เพื่อเก็บ `REDIS_URL`
+ไฟล์ `k8s/configmap.yaml` เป็น manifest อ้างอิงสำหรับ ConfigMap ชื่อ `backend-config` เพื่อเก็บ `REDIS_URL`
 
-ไฟล์ `k8s/secret.yaml` ใช้สร้าง Secret ชื่อ `backend-secret` เพื่อเก็บ `API_KEY`
+ไฟล์ `k8s/secret.yaml` เป็น manifest อ้างอิงสำหรับ Secret ชื่อ `backend-secret` เพื่อเก็บ `API_KEY`
 
-ไฟล์ `k8s/pvc.yaml` ใช้สร้าง PersistentVolumeClaim ชื่อ `redis-pvc` สำหรับให้ Redis เก็บข้อมูลถาวร
+ไฟล์ `k8s/pvc.yaml` เป็น manifest อ้างอิงสำหรับ PersistentVolumeClaim ชื่อ `redis-pvc`
+
+resource พื้นฐานเหล่านี้ถูกดูแลจริงโดย Terraform ใน flow หลัก เพื่อไม่ให้ซ้ำกับ Ansible
 
 ### 7.2 Deployment ของแอป
 
-ไฟล์ `k8s/deployment.yaml` รวม Deployment ของ 3 ส่วนหลัก
+ไฟล์ `k8s/deployment.yaml` เป็น manifest รวมสำหรับ app ฝั่ง backend และ frontend เท่านั้น
 
-- `redis` ใช้ image `redis:alpine`
 - `backend` ใช้ image `thamonwanfirst/monkeypop-backend:latest`
 - `frontend` ใช้ image `thamonwanfirst/monkeypop-frontend:latest`
 
 backend และ frontend ถูกตั้งให้มี 2 replicas เพื่อให้มี pod มากกว่า 1 ตัว
 
+ไฟล์ที่ Ansible ใช้จริงตอน deploy แยกตาม service เพื่อให้ pipeline backend/frontend ไม่ไปแตะกัน:
+
+- `k8s/backend-deployment.yaml`
+- `k8s/backend-service.yaml`
+- `k8s/frontend-deployment.yaml`
+- `k8s/frontend-service.yaml`
+
+Ansible จะ `kubectl apply` ไฟล์เหล่านี้ แล้วใช้ `kubectl set image` เพื่อเปลี่ยน tag เป็น version ที่ Jenkins build มา
+
 ### 7.3 Service สำหรับเข้าถึงระบบ
 
-ไฟล์ `k8s/service.yaml` รวม Service ของระบบ
+ไฟล์ `k8s/service.yaml` เป็น manifest รวม Service ของ backend และ frontend
 
-- Redis Service เปิด port `6379` ให้ backend ติดต่อ Redis ภายใน cluster
 - Backend Service เปิด NodePort `30002`
 - Frontend Service เปิด NodePort `30001`
 
 ผู้เล่นจะเข้าเกมผ่าน frontend ที่ port `30001` ส่วน frontend จะเรียก backend ที่ port `30002`
+
+Redis Service ถูกดูแลโดย Terraform เพราะ Redis เป็น infrastructure dependency ของ backend
 
 ---
 
@@ -619,7 +635,7 @@ Backend / Kubernetes
 | `Terraform/` | ก่อน deploy | สร้าง resource พื้นฐาน เช่น namespace, ConfigMap, Secret และ Redis |
 | `ansible/` | ตอน deploy | deploy backend และ frontend เข้า Kubernetes |
 | `jenkins/` | CI/CD | build, test, push image และสั่ง deploy |
-| `k8s/` | Kubernetes runtime | manifest สำหรับ resource บน Kubernetes |
+| `k8s/` | Kubernetes runtime | manifest อ้างอิง และ manifest ที่ Ansible ใช้ deploy backend/frontend |
 | `prometheus/` | Monitoring | config การเก็บ metrics และ alert |
 | `grafana/` | Monitoring | datasource และ dashboard สำหรับแสดงผล |
 
