@@ -7,6 +7,75 @@
     - name: Create monkeypop namespace
       shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl create namespace monkeypop --dry-run=client -o yaml | kubectl apply -f - --validate=false
 
+    - name: Create Redis PVC
+      shell: |
+        export KUBECONFIG=/var/jenkins_home/.kube/config
+        kubectl apply -f - --validate=false <<EOF
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: redis-pvc
+          namespace: monkeypop
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+        EOF
+
+    - name: Deploy Redis
+      shell: |
+        export KUBECONFIG=/var/jenkins_home/.kube/config
+        kubectl apply -f - --validate=false <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: redis
+          namespace: monkeypop
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: redis
+          template:
+            metadata:
+              labels:
+                app: redis
+            spec:
+              containers:
+              - name: redis
+                image: redis:alpine
+                command: ["redis-server", "--appendonly", "yes"]
+                ports:
+                - containerPort: 6379
+                volumeMounts:
+                - name: redis-data
+                  mountPath: /data
+              volumes:
+              - name: redis-data
+                persistentVolumeClaim:
+                  claimName: redis-pvc
+        EOF
+
+    - name: Create Redis Service
+      shell: |
+        export KUBECONFIG=/var/jenkins_home/.kube/config
+        kubectl apply -f - --validate=false <<EOF
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: redis
+          namespace: monkeypop
+        spec:
+          selector:
+            app: redis
+          ports:
+          - protocol: TCP
+            port: 6379
+            targetPort: 6379
+        EOF
+
     - name: Deploy Backend
       shell: |
         export KUBECONFIG=/var/jenkins_home/.kube/config
@@ -38,6 +107,11 @@
                     configMapKeyRef:
                       name: backend-config
                       key: REDIS_URL
+                - name: API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backend-secret
+                      key: API_KEY
         EOF
 
     - name: Create Backend Service

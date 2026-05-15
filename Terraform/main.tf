@@ -11,18 +11,18 @@ provider "kubernetes" {
   config_path = "/var/jenkins_home/.kube/config" 
 }
 
-# 1. อ้างอิง Namespace ที่มีอยู่แล้ว (แทนการสร้างใหม่เพื่อป้องกัน Error: already exists)
-data "kubernetes_namespace" "monkeypop" {
+# 1. Create or manage the application namespace.
+resource "kubernetes_namespace" "monkeypop" {
   metadata {
     name = "monkeypop"
   }
 }
 
-# 2. จัดการ ConfigMap สำหรับแอปพลิเคชัน
+# 2. Manage the backend ConfigMap.
 resource "kubernetes_config_map" "backend_config" {
   metadata {
     name      = "backend-config"
-    namespace = data.kubernetes_namespace.monkeypop.metadata[0].name
+    namespace = kubernetes_namespace.monkeypop.metadata[0].name
   }
 
   data = {
@@ -30,11 +30,11 @@ resource "kubernetes_config_map" "backend_config" {
   }
 }
 
-# 3. จัดการ Secret (เช่น API Key) เพื่อความปลอดภัย
+# 3. Manage the backend Secret.
 resource "kubernetes_secret" "backend_secret" {
   metadata {
     name      = "backend-secret"
-    namespace = data.kubernetes_namespace.monkeypop.metadata[0].name
+    namespace = kubernetes_namespace.monkeypop.metadata[0].name
   }
 
   data = {
