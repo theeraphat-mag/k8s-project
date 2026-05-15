@@ -15,7 +15,7 @@
 | Database | Redis | เก็บคะแนน leaderboard |
 | Container | `Dockerfile`, `Docker-compose.yml` | สร้างและรันระบบในรูปแบบ container |
 | CI/CD | `jenkins/` | build, push image และ deploy อัตโนมัติ |
-| Infrastructure | `Terraform/` | สร้าง namespace, ConfigMap และ Secret |
+| Infrastructure | `Terraform/` | สร้าง namespace, ConfigMap, Secret และ Redis |
 | Deployment | `ansible/`, `k8s/` | deploy app เข้า Kubernetes |
 | Monitoring | `prometheus/`, `grafana/`, `k8s/monitoring*.yaml` | เก็บ metrics และแสดง dashboard |
 
@@ -201,7 +201,7 @@ Flow ของ backend pipeline คือ
 4. `Docker Build` build image จาก `backend/Dockerfile`
 5. `Push Hub` push image ไป Docker Hub ชื่อ `thamonwanfirst/monkeypop-backend`
 6. `Deploy` รัน Terraform เพื่อสร้าง resource พื้นฐาน
-7. รัน Ansible เพื่อ deploy Redis และ backend
+7. รัน Ansible เพื่อ deploy backend อย่างเดียว ส่วน Redis ถูกดูแลโดย Terraform
 8. deploy monitoring stack เช่น Prometheus, Grafana และ kube-state-metrics
 9. หลังจบ pipeline ลบ image ในเครื่อง Jenkins และ logout Docker
 
@@ -216,7 +216,7 @@ Flow ของ frontend pipeline คือ
 3. `Test` เช็กว่า `index.html` มีอยู่จริง
 4. `Docker Build` build image จาก `frontend/Dockerfile`
 5. `Push Hub` push image ไป Docker Hub ชื่อ `thamonwanfirst/monkeypop-frontend`
-6. `Deploy` รัน Ansible เพื่อ deploy frontend เข้า Kubernetes
+6. `Deploy` รัน Terraform เพื่อเตรียม resource พื้นฐาน แล้วรัน Ansible เพื่อ deploy frontend เข้า Kubernetes
 7. หลังจบ pipeline ลบ image ในเครื่อง Jenkins และ logout Docker
 
 หมายเหตุ: ชื่อไฟล์ `Jenkinsfile_frountend` สะกดว่า `frountend` แต่ความหมายคือ frontend
@@ -225,7 +225,7 @@ Flow ของ frontend pipeline คือ
 
 ## 5. Terraform เตรียม Resource พื้นฐานใน Kubernetes
 
-ก่อน deploy backend ต้องมี resource พื้นฐานใน Kubernetes ก่อน เช่น namespace, ConfigMap และ Secret
+ก่อน deploy แอปต้องมี resource พื้นฐานใน Kubernetes ก่อน เช่น namespace, ConfigMap, Secret และ Redis
 
 โฟลเดอร์ที่เกี่ยวข้องคือ
 
@@ -252,6 +252,9 @@ Terraform/
 - สร้าง namespace `monkeypop`
 - สร้าง ConfigMap `backend-config`
 - สร้าง Secret `backend-secret`
+- สร้าง Redis PVC `redis-pvc`
+- deploy Redis
+- สร้าง Redis Service
 
 ConfigMap ใช้เก็บค่า
 
@@ -266,6 +269,8 @@ API_KEY=monkey-secret-key
 ```
 
 ค่าเหล่านี้ backend จะนำไปใช้ตอนรันใน Kubernetes
+
+Redis ถูกจัดให้อยู่ใน Terraform เพราะเป็น service พื้นฐานที่ backend ต้องใช้เก็บ leaderboard ไม่ใช่ source code ของ backend โดยตรง
 
 ### 5.2 `Terraform/variables.tf`
 
@@ -290,9 +295,9 @@ API_KEY=monkey-secret-key
 
 ---
 
-## 6. Ansible Deploy แอปเข้า Kubernetes
+## 6. Ansible Deploy เฉพาะแอปเข้า Kubernetes
 
-หลังจาก Terraform เตรียม resource พื้นฐานแล้ว Jenkins จะเรียก Ansible เพื่อ deploy application
+หลังจาก Terraform เตรียม resource พื้นฐานแล้ว Jenkins จะเรียก Ansible เพื่อ deploy application เท่านั้น โดย Ansible จะไม่สร้าง namespace, ConfigMap, Secret หรือ Redis แล้ว
 
 โฟลเดอร์ที่เกี่ยวข้องคือ
 
@@ -316,23 +321,19 @@ server ansible_host=localhost ansible_connection=local
 
 หมายความว่า Ansible จะรันคำสั่งบนเครื่อง local หรือใน Jenkins container ที่ pipeline กำลังทำงาน
 
-### 6.2 Deploy Backend และ Redis
+### 6.2 Deploy Backend
 
-ไฟล์ `ansible/backend/deploy_backend.yml` ใช้ deploy backend และ Redis
+ไฟล์ `ansible/backend/deploy_backend.yml` ใช้ deploy backend และ Backend Service
 
 Flow ของ playbook นี้คือ
 
-1. สร้าง namespace `monkeypop`
-2. สร้าง Redis PVC ชื่อ `redis-pvc`
-3. deploy Redis
-4. สร้าง Redis Service
-5. deploy backend จำนวน 2 replicas
-6. backend ดึง `REDIS_URL` จาก ConfigMap
-7. backend ดึง `API_KEY` จาก Secret
-8. สร้าง Backend Service แบบ NodePort ที่ port `30002`
-9. สั่ง rollout restart เพื่อให้ backend ใช้ image ล่าสุด
+1. deploy backend จำนวน 2 replicas
+2. backend ดึง `REDIS_URL` จาก ConfigMap ที่ Terraform สร้างไว้
+3. backend ดึง `API_KEY` จาก Secret ที่ Terraform สร้างไว้
+4. สร้าง Backend Service แบบ NodePort ที่ port `30002`
+5. สั่ง rollout restart เพื่อให้ backend ใช้ image ล่าสุด
 
-หมายเหตุ: namespace ถูกสร้างทั้งใน Terraform และ Ansible เพราะ Ansible ต้องการกันพลาด ถ้า namespace มีอยู่แล้วคำสั่งนี้จะไม่ทำให้ระบบพัง แต่ในเชิงออกแบบ Terraform ควรเป็นผู้ดูแล namespace หลัก
+ส่วน namespace, ConfigMap, Secret, Redis PVC, Redis Deployment และ Redis Service ถูกย้ายไปให้ Terraform ดูแลทั้งหมด
 
 ### 6.3 Deploy Frontend
 
@@ -340,11 +341,10 @@ Flow ของ playbook นี้คือ
 
 Flow ของ playbook นี้คือ
 
-1. สร้าง namespace `monkeypop`
-2. deploy frontend จำนวน 2 replicas
-3. ใช้ image `thamonwanfirst/monkeypop-frontend`
-4. สร้าง Frontend Service แบบ NodePort ที่ port `30001`
-5. สั่ง rollout restart เพื่อให้ frontend ใช้ image ล่าสุด
+1. deploy frontend จำนวน 2 replicas
+2. ใช้ image `thamonwanfirst/monkeypop-frontend`
+3. สร้าง Frontend Service แบบ NodePort ที่ port `30001`
+4. สั่ง rollout restart เพื่อให้ frontend ใช้ image ล่าสุด
 
 ---
 
@@ -598,8 +598,8 @@ Backend / Kubernetes
 2. Dockerfile แปลง frontend/backend เป็น Docker image
 3. Jenkins pipeline เริ่มทำงานเมื่อมีการ push code
 4. Jenkins build และ push image ไป Docker Hub
-5. Terraform สร้าง namespace, ConfigMap และ Secret
-6. Ansible deploy Redis, backend และ frontend เข้า Kubernetes
+5. Terraform สร้าง namespace, ConfigMap, Secret และ Redis
+6. Ansible deploy backend และ frontend เข้า Kubernetes
 7. Kubernetes รัน frontend, backend และ Redis เป็น pod
 8. ผู้เล่นเข้าเกมผ่าน frontend port `30001`
 9. frontend ส่งคะแนนไป backend port `30002`
@@ -616,8 +616,8 @@ Backend / Kubernetes
 |---|---|---|
 | `frontend/` | Runtime | หน้าเว็บเกมที่ผู้เล่นใช้งาน |
 | `backend/` | Runtime | API รับคะแนน ดึง leaderboard และส่ง metrics |
-| `Terraform/` | ก่อน deploy | สร้าง resource พื้นฐาน เช่น namespace, ConfigMap, Secret |
-| `ansible/` | ตอน deploy | deploy Redis, backend และ frontend เข้า Kubernetes |
+| `Terraform/` | ก่อน deploy | สร้าง resource พื้นฐาน เช่น namespace, ConfigMap, Secret และ Redis |
+| `ansible/` | ตอน deploy | deploy backend และ frontend เข้า Kubernetes |
 | `jenkins/` | CI/CD | build, test, push image และสั่ง deploy |
 | `k8s/` | Kubernetes runtime | manifest สำหรับ resource บน Kubernetes |
 | `prometheus/` | Monitoring | config การเก็บ metrics และ alert |

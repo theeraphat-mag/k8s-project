@@ -3,9 +3,6 @@
   vars:
     version: "latest"
   tasks:
-    - name: Create monkeypop namespace
-      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl create namespace monkeypop --dry-run=client -o yaml | kubectl apply -f - --validate=false
-
     - name: Deploy Frontend
       shell: |
         export KUBECONFIG=/var/jenkins_home/.kube/config

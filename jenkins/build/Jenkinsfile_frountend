@@ -63,7 +63,20 @@ pipeline {
 
         stage('6. Deploy') {
             steps {
-                echo "Stage 6: Triggering Ansible Deployment..."
+                echo "Stage 6: Preparing infrastructure with Terraform..."
+                dir('Terraform') {
+                    sh 'terraform init'
+                    // Import existing base resources when the cluster already has them.
+                    sh 'terraform import kubernetes_namespace.monkeypop monkeypop || true'
+                    sh 'terraform import kubernetes_config_map.backend_config monkeypop/backend-config || true'
+                    sh 'terraform import kubernetes_secret.backend_secret monkeypop/backend-secret || true'
+                    sh 'terraform import kubernetes_persistent_volume_claim.redis_pvc monkeypop/redis-pvc || true'
+                    sh 'terraform import kubernetes_deployment.redis monkeypop/redis || true'
+                    sh 'terraform import kubernetes_service.redis monkeypop/redis || true'
+                    sh 'terraform apply -auto-approve'
+                }
+
+                echo "Stage 6: Triggering Ansible application deployment..."
                 dir('ansible/frontend') {
                     sh "ansible-playbook -i hosts.ini deploy_frontend.yml -e version=${env.IMAGE_TAG}"
                 }
