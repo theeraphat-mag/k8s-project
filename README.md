@@ -1,7 +1,7 @@
 # 🚀 Monkey Pop Pop — ENG23 3074
 
 > **เกมกดลิงยอดฮิตที่มีระบบ CI/CD อัตโนมัติและ Monitoring แบบ Full-Stack**  
-> พัฒนาด้วย Node.js และ Redis, ทำ Containerization ด้วย Docker, บริหารจัดการ Infrastructure ด้วย Terraform (K8s Provider) และ Ansible, Deploy บน Kubernetes ผ่าน Jenkins CI/CD พร้อมระบบ Monitoring ด้วย Prometheus และ Grafana
+> พัฒนาด้วย Node.js และ Redis, ทำ Containerization ด้วย Docker, บริหารจัดการ Infrastructure พื้นฐานด้วย Terraform (K8s Provider), Deploy แอปพลิเคชันด้วย Ansible บน Kubernetes ผ่าน Jenkins CI/CD พร้อมระบบ Monitoring ด้วย Prometheus และ Grafana
 
 ---
 
@@ -72,7 +72,7 @@ k8s-project/
 │   └── build/              # Jenkinsfiles สำหรับ CI/CD (Frontend/Backend)
 ├── k8s/                    # Kubernetes Manifests (PVC, Service, Deployment)
 ├── prometheus/             # การตั้งค่า Prometheus และ Alerting
-├── Terraform/              # Infrastructure as Code (Namespace, ConfigMap, Secret)
+├── Terraform/              # Infrastructure as Code (Namespace, ConfigMap, Secret, Redis)
 └── README.md
 ```
 
@@ -131,16 +131,16 @@ kubectl apply -f k8s/monitoring-deployment.yaml
 ## 🔄 CI/CD Pipeline (Jenkins)
 
 ระบบแบ่ง Pipeline เป็น 2 ส่วนหลัก:
-1. **Backend Pipeline:** จัดการ Build Image, เตรียม Infrastructure (Terraform), Deploy Backend + Redis และ Monitoring stack
-2. **Frontend Pipeline:** จัดการ Build Image และ Deploy แอปพลิเคชัน (Ansible)
+1. **Backend Pipeline:** จัดการ Build Image, เตรียม Infrastructure พื้นฐานด้วย Terraform, Deploy Backend ด้วย Ansible และ Deploy Monitoring stack
+2. **Frontend Pipeline:** จัดการ Build Image, เตรียม Infrastructure พื้นฐานด้วย Terraform และ Deploy Frontend ด้วย Ansible
 
 | Stage | คำอธิบาย |
 |-------|----------|
 | **Checkout** | ดึงโค้ดล่าสุดจาก GitHub |
 | **Docker Build** | สร้าง Docker image จาก Dockerfile ใน backend/frontend |
 | **Push to Hub** | อัปโหลด image ขึ้น Docker Hub |
-| **Infrastructure** | (เฉพาะ Backend) รัน Terraform เพื่อสร้าง/จัดการ Namespace, ConfigMap และ Secret |
-| **Deploy** | รัน Ansible เพื่อ Deploy Redis, Backend/Frontend และ Rollout Restart Pods ใน K8s |
+| **Infrastructure** | รัน Terraform เพื่อสร้าง/จัดการ Namespace, ConfigMap, Secret, Redis PVC, Redis Deployment และ Redis Service |
+| **Deploy** | รัน Ansible เพื่อ Deploy Backend/Frontend และ Rollout Restart Pods ใน K8s |
 | **Monitoring** | (เฉพาะ Backend) Deploy Prometheus, Grafana และ kube-state-metrics |
 
 ---
@@ -152,11 +152,14 @@ kubectl apply -f k8s/monitoring-deployment.yaml
 - **Namespace:** `monkeypop`
 - **ConfigMap:** เก็บการตั้งค่า environment
 - **Secret:** เก็บข้อมูลสำคัญ เช่น API Key
+- **Redis PVC:** เก็บข้อมูล leaderboard แบบ persistent
+- **Redis Deployment:** รัน Redis สำหรับ backend
+- **Redis Service:** ให้ backend เชื่อมต่อ Redis ภายใน cluster
 
 ### Ansible — Configure Environment
 ใช้ Ansible ในการ:
-- จัดการการ Deploy Kubernetes manifests
-- สร้าง Redis PVC, Redis Deployment และ Redis Service สำหรับ backend
+- Deploy Backend Deployment และ Backend Service
+- Deploy Frontend Deployment และ Frontend Service
 - ทำ **Rollout Restart** เพื่อให้อัปเดต image ใหม่โดยไม่มี downtime
 
 ---
