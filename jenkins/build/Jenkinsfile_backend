@@ -67,7 +67,8 @@ pipeline {
                 echo "Running Terraform..."
                 dir('Terraform') {
                     sh 'terraform init'
-                    // Import existing resources if they exist to prevent "already exists" errors
+                    // Import existing resources when the cluster already has them.
+                    sh 'terraform import kubernetes_namespace.monkeypop monkeypop || true'
                     sh 'terraform import kubernetes_config_map.backend_config monkeypop/backend-config || true'
                     sh 'terraform import kubernetes_secret.backend_secret monkeypop/backend-secret || true'
                     sh 'terraform apply -auto-approve'
@@ -77,6 +78,12 @@ pipeline {
                 dir('ansible/backend') {
                     sh "ansible-playbook -i hosts.ini deploy_backend.yml -e version=${env.IMAGE_TAG}"
                 }
+
+                echo "Deploying monitoring stack..."
+                sh 'export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl apply -f prometheus/rbac.yaml --validate=false'
+                sh 'export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl apply -f k8s/kube-state-metrics.yaml --validate=false'
+                sh 'export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl apply -f k8s/monitoring.yaml --validate=false'
+                sh 'export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl apply -f k8s/monitoring-deployment.yaml --validate=false'
             }
         }
     }
