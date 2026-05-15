@@ -3,51 +3,11 @@
   vars:
     version: "latest"
   tasks:
-    - name: Deploy Frontend
-      shell: |
-        export KUBECONFIG=/var/jenkins_home/.kube/config
-        kubectl apply -f - --validate=false <<EOF
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: frontend
-          namespace: monkeypop
-        spec:
-          replicas: 2
-          selector:
-            matchLabels:
-              app: frontend
-          template:
-            metadata:
-              labels:
-                app: frontend
-            spec:
-              containers:
-              - name: frontend
-                image: thamonwanfirst/monkeypop-frontend:{{ version }}
-                imagePullPolicy: Always
-                ports:
-                - containerPort: 80
-        EOF
+    - name: Apply frontend manifests
+      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl apply -f {{ playbook_dir }}/../../k8s/frontend-deployment.yaml -f {{ playbook_dir }}/../../k8s/frontend-service.yaml --validate=false
 
-    - name: Create Frontend Service
-      shell: |
-        export KUBECONFIG=/var/jenkins_home/.kube/config
-        kubectl apply -f - --validate=false <<EOF
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: frontend
-          namespace: monkeypop
-        spec:
-          type: NodePort
-          selector:
-            app: frontend
-          ports:
-          - port: 80
-            targetPort: 80
-            nodePort: 30001
-        EOF
+    - name: Set frontend image version
+      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl set image deployment/frontend frontend=thamonwanfirst/monkeypop-frontend:{{ version }} -n monkeypop
 
     - name: Force Rollout Restart
       shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl rollout restart deployment/frontend -n monkeypop

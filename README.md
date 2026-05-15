@@ -70,7 +70,7 @@ k8s-project/
 ├── grafana/                # การตั้งค่า Grafana และ Dashboard
 ├── jenkins/
 │   └── build/              # Jenkinsfiles สำหรับ CI/CD (Frontend/Backend)
-├── k8s/                    # Kubernetes Manifests (PVC, Service, Deployment)
+├── k8s/                    # Kubernetes Manifests สำหรับ app, monitoring และไฟล์อ้างอิง infra
 ├── prometheus/             # การตั้งค่า Prometheus และ Alerting
 ├── Terraform/              # Infrastructure as Code (Namespace, ConfigMap, Secret, Redis)
 └── README.md
@@ -158,8 +158,8 @@ kubectl apply -f k8s/monitoring-deployment.yaml
 
 ### Ansible — Configure Environment
 ใช้ Ansible ในการ:
-- Deploy Backend Deployment และ Backend Service
-- Deploy Frontend Deployment และ Frontend Service
+- เรียกใช้ manifest ใน `k8s/backend-deployment.yaml` และ `k8s/backend-service.yaml` เพื่อ Deploy Backend
+- เรียกใช้ manifest ใน `k8s/frontend-deployment.yaml` และ `k8s/frontend-service.yaml` เพื่อ Deploy Frontend
 - ทำ **Rollout Restart** เพื่อให้อัปเดต image ใหม่โดยไม่มี downtime
 
 ---

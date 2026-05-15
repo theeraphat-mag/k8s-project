@@ -4,62 +4,11 @@
   vars:
     version: "latest"   
   tasks:
-    - name: Deploy Backend
-      shell: |
-        export KUBECONFIG=/var/jenkins_home/.kube/config
-        kubectl apply -f - --validate=false <<EOF
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: backend
-          namespace: monkeypop
-        spec:
-          replicas: 2
-          selector:
-            matchLabels:
-              app: backend
-          template:
-            metadata:
-              labels:
-                app: backend
-            spec:
-              containers:
-              - name: backend
-                image: thamonwanfirst/monkeypop-backend:{{ version }}
-                imagePullPolicy: Always
-                ports:
-                - containerPort: 3001
-                env:
-                - name: REDIS_URL
-                  valueFrom:
-                    configMapKeyRef:
-                      name: backend-config
-                      key: REDIS_URL
-                - name: API_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: backend-secret
-                      key: API_KEY
-        EOF
+    - name: Apply backend manifests
+      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl apply -f {{ playbook_dir }}/../../k8s/backend-deployment.yaml -f {{ playbook_dir }}/../../k8s/backend-service.yaml --validate=false
 
-    - name: Create Backend Service
-      shell: |
-        export KUBECONFIG=/var/jenkins_home/.kube/config
-        kubectl apply -f - --validate=false <<EOF
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: backend
-          namespace: monkeypop
-        spec:
-          type: NodePort
-          selector:
-            app: backend
-          ports:
-          - port: 3001
-            targetPort: 3001
-            nodePort: 30002
-        EOF
+    - name: Set backend image version
+      shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl set image deployment/backend backend=thamonwanfirst/monkeypop-backend:{{ version }} -n monkeypop
 
     - name: Force Rollout Restart
       shell: export KUBECONFIG=/var/jenkins_home/.kube/config; kubectl rollout restart deployment/backend -n monkeypop
